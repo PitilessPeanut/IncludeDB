@@ -8,13 +8,13 @@ Meant to be used in environments with limited resources or in situations where a
 If you like this project or find it useful in any way, please please PLEASE consider helping out - even just a little bit! It helps immensely!
 Donate here:
 
-<img src="images/btc.png" width="100px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="100px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh">
+<img src="images/btc.png" width="150px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="150px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh">
 
 **Attention!! This project is *early* alpha and many things have yet to be implemented:**
 - *mmap()*ed file
 - Support for concurrent read
 - Support for thread-safe write
-- Windows support has not been tested
+- Tests for Windows support
 - Write ahead logging
 - Bloom filters
 - *delete* a key/value pair
@@ -29,7 +29,7 @@ A build process is not required, simply drop *nanopulsedb.h* into your project a
 If compiled as C++ a number of unit-tests will be executed during compilation. To disable this behaviour ```#define DISABLE_CPP``` before *#including* this file.
 
 ## Using
-_**Attention** This database is not yet production-ready! Proceed accordingly!_
+_**Attention** This code is not yet production-ready! Proceed accordingly!_
 
 The database can also be operated entirely during compile time, providing you with a compile-time key/value store.
 
@@ -43,7 +43,7 @@ Nanopulse is a tiny database engine with limited features designed for a niche p
 
 [NuDB](https://github.com/CPPAlliance/NuDB) Header only k/v
 
-[SQLite](https://github.com/sqlite/sqlite) Battle tested. Popular in browsers/etc. Not a key/value store                     
+[SQLite](https://github.com/sqlite/sqlite) Battle tested. Popular in browsers/etc. 
 
 [Unqlite](https://github.com/symisc/unqlite)                                                                        
                                                                                                   

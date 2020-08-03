@@ -78,7 +78,7 @@ typedef struct nplse_skipnode
  4. bloom
  */
 
-struct nanopulseDB
+typedef struct nanopulseDB
 {
     // File:
     unsigned char *mappedfile;
@@ -89,13 +89,13 @@ struct nanopulseDB
     // List:
     nplse_skipnode *nodeVec;
     int rootA=0, rootB=0, rootC=0, rootD=0;
-    int nActiveNodes = 0;
-    int nAllocatedNodes = 32;
-    int designatedNewNode = 0;
+    int nKeys = 0;
+    int nAllocatedSlots = 32;
+    //int addressNewNode = 0;
     
     // Hashing:
     unsigned seed = 0;
-};
+} nanopulseDB;
 
 
 
@@ -182,6 +182,127 @@ static constexpr unsigned nplse_xx32(const unsigned char *input, int len, unsign
     h ^= h >> 16;
     return h;
 }
+
+inline constexpr void nplse_insertSkipnode(nanopulseDB *instance, unsigned key, int filepos)
+{
+    const int newNodeAddr = nplse_internal_getNewNodePos(instance);
+    instance->nodeVec[newNodeAddr].nodeid  = key;
+    instance->nodeVec[newNodeAddr].filepos = filepos;
+    
+    // special case: key smaller than any before:
+    if (key < instance->nodeVec[instance->headD].nodeid)
+    {
+        instance->nodeVec[newNodeAddr].next = instance->headD;
+        instance->headD = newNodeAddr;
+        return;
+    }
+    
+    int current = instance->headD;
+    int next = 0;
+    for (int i=0; i<instance->nKeys-2; ++i)
+    {
+        next = instance->nodeVec[current].next;
+        if (instance->nodeVec[next].nodeid > key)
+        {
+            instance->nodeVec[newNodeAddr].next = next;
+            break;
+        }
+        current = next;
+    }
+    instance->nodeVec[current].next = newNodeAddr;
+}
+
+inline constexpr nplse_skipnode *nplse_findSkipnode(nanopulseDB *instance, const unsigned key)
+{
+    int current = instance->headD;
+    for (int i=0; i<instance->nKeys; ++i)
+    {
+        if (instance->nodeVec[current].nodeid == key)
+            return &instance->nodeVec[current];
+        current = instance->nodeVec[current].next;
+    }
+    return nullptr;
+}
+
+
+
+
+#if defined(COMP_AS_CPP)
+
+constexpr unsigned nplse_testSkiplist()
+{
+    // setup:
+    nplse_skipnode testNodes[32];
+    nanopulseDB testDB{ .mappedfile=nullptr,
+                        .szMappedfile=0,
+                        .chunkSize=0,
+                        .nodeVec=testNodes,
+                        .seed=0
+                      };
+    // start testing:
+    nplse_insertSkipnode(&testDB, 111, 0);
+    const bool TEST_HEAD_IS_ZERO = testDB.headD == 0;
+    nplse_insertSkipnode(&testDB, 333, 1);
+    const bool TEST_NODE_ADD =  testNodes[0].nodeid == 111
+                             && testNodes[1].nodeid == 333
+                             && testNodes[testDB.headD].nodeid == 111
+                             && testDB.headD == 0
+                             && testNodes[0].next == 1
+                             && testNodes[1].next == 0
+                             && testNodes[testNodes[0].next].nodeid == 333;
+    const bool TEST_NODES_POINTING_TO_CORRECT_POSITION =  testNodes[0].filepos == 0
+                                                       && testNodes[1].filepos == 1;
+    // insert node between:
+    nplse_insertSkipnode(&testDB, 222, 2);
+    const bool TEST_NODE_BETWEEN =  testNodes[2].nodeid == 222
+                                 && testNodes[2].next == 1
+                                 && testNodes[1].next == 0
+                                 && testNodes[0].next == 2;
+    // find nodes:
+    const nplse_skipnode *first  = nplse_findSkipnode(&testDB, 111);
+    const nplse_skipnode *second = nplse_findSkipnode(&testDB, 333);
+    const nplse_skipnode *third  = nplse_findSkipnode(&testDB, 222);
+    const bool TEST_NODES_FOUND =  first->filepos == 0
+                                && second->filepos == 1
+                                && third->filepos == 2;
+    // add node to end:
+    nplse_insertSkipnode(&testDB, 444, 3);
+    const bool TEST_NODE_AT_END =  nplse_findSkipnode(&testDB, 444)->filepos == 3
+                                && testNodes[3].nodeid == 444
+                                && testNodes[1].next == 3
+                                && testNodes[3].next == 0;
+    // not found:
+    const bool TEST_NODE_NOT_FOUND = nplse_findSkipnode(&testDB, 69) == nullptr;
+    
+    
+    return  TEST_HEAD_IS_ZERO
+         | (TEST_NODE_ADD << 1)
+         | (TEST_NODES_POINTING_TO_CORRECT_POSITION << 2)
+         | (TEST_NODE_BETWEEN << 3)
+         | (TEST_NODES_FOUND << 4)
+         | (TEST_NODE_AT_END << 5)
+         | (TEST_NODE_NOT_FOUND << 6)
+         ;
+}
+
+static constexpr unsigned resList = nplse_testSkiplist();
+
+static_assert(resList&  1, "head pointing to wrong place");
+static_assert(resList&  2, "node was not correctly inserted");
+static_assert(resList&  4, "nodes did not sit where they were supposed to");
+static_assert(resList&  8, "nodes not correctly sorted");
+static_assert(resList& 16, "nodes could not be recovered");
+static_assert(resList& 32, "node at end not found");
+static_assert(resList& 64, "nplse_findSkipnode() did not return NULL");
+
+
+constexpr unsigned nplse_testDB()
+{
+}
+
+static_assert(true);
+
+#endif // defined(COMP_AS_CPP)
 
 #endif // NANOPULSE_DB_IMPLEMENTATION
 
