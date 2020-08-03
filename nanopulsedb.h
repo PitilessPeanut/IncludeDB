@@ -35,6 +35,7 @@
   #define CTOR4(w,x,y,z) constexpr w,x,y,z
 #else
   #define COMPTIME static const
+  #define constexpr
   #define nullptr NULL
   enum {false=0,true=1};
   typedef int bool;
@@ -108,7 +109,79 @@ struct nanopulseDB
 
 #ifdef NANOPULSE_DB_IMPLEMENTATION
 
-
+static constexpr unsigned nplse_xx32(const unsigned char *input, int len, unsigned seed)
+{
+    // https://github.com/Cyan4973/xxHash
+    
+    #define XXH_rotl32(x,r) (((x) << (r)) | ((x) >> (32 - (r))))
+    COMPTIME unsigned XXH_PRIME32_1 = 0x9E3779B1u;
+    COMPTIME unsigned XXH_PRIME32_2 = 0x85EBCA77u;
+    COMPTIME unsigned XXH_PRIME32_3 = 0xC2B2AE3Du;
+    COMPTIME unsigned XXH_PRIME32_4 = 0x27D4EB2Fu;
+    COMPTIME unsigned XXH_PRIME32_5 = 0x165667B1u;
+    const unsigned char *bEnd = input+len;
+    unsigned h=0, bytes=0;
+    if (len>=16)
+    {
+        const unsigned char *const limit = bEnd - 15;
+        unsigned v1 = seed + XXH_PRIME32_1 + XXH_PRIME32_2;
+        unsigned v2 = seed + XXH_PRIME32_2;
+        unsigned v3 = seed + 0;
+        unsigned v4 = seed - XXH_PRIME32_1;
+        do
+        {
+            bytes = (unsigned)input[0] | ((unsigned)input[1]<< 8) | ((unsigned)input[2]<<16) | ((unsigned)input[3]<<24);
+            v1 += bytes * XXH_PRIME32_2;
+            v1  = XXH_rotl32(v1, 13);
+            v1 *= XXH_PRIME32_1;
+            input += 4;
+            bytes = (unsigned)input[0] | ((unsigned)input[1]<< 8) | ((unsigned)input[2]<<16) | ((unsigned)input[3]<<24);
+            v2 += bytes * XXH_PRIME32_2;
+            v2  = XXH_rotl32(v2, 13);
+            v2 *= XXH_PRIME32_1;
+            input += 4;
+            bytes = (unsigned)input[0] | ((unsigned)input[1]<< 8) | ((unsigned)input[2]<<16) | ((unsigned)input[3]<<24);
+            v3 += bytes * XXH_PRIME32_2;
+            v3  = XXH_rotl32(v3, 13);
+            v3 *= XXH_PRIME32_1;
+            input += 4;
+            bytes = (unsigned)input[0] | ((unsigned)input[1]<< 8) | ((unsigned)input[2]<<16) | ((unsigned)input[3]<<24);
+            v4 += bytes * XXH_PRIME32_2;
+            v4  = XXH_rotl32(v4, 13);
+            v4 *= XXH_PRIME32_1;
+            input += 4;
+        } while (input < limit);
+        h = XXH_rotl32(v1, 1)  + XXH_rotl32(v2, 7)
+          + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+    }
+    else
+    {
+        h = seed + XXH_PRIME32_5;
+    }
+    h += len;
+    len &= 15;
+    while (len >= 4)
+    {
+        bytes = (unsigned)input[0] | ((unsigned)input[1]<< 8) | ((unsigned)input[2]<<16) | ((unsigned)input[3]<<24);
+        h += bytes * XXH_PRIME32_3;
+        input += 4;
+        h  = XXH_rotl32(h, 17) * XXH_PRIME32_4;
+        len -= 4;
+    }
+    while (len > 0)
+    {
+        h += (*input++) * XXH_PRIME32_5;
+        h = XXH_rotl32(h, 11) * XXH_PRIME32_1;
+        --len;
+    }
+    #undef XXH_rotl32
+    h ^= h >> 15;
+    h *= XXH_PRIME32_2;
+    h ^= h >> 13;
+    h *= XXH_PRIME32_3;
+    h ^= h >> 16;
+    return h;
+}
 
 #endif // NANOPULSE_DB_IMPLEMENTATION
 

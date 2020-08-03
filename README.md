@@ -8,8 +8,7 @@ Meant to be used in environments with limited resources or in situations where a
 If you like this project or find it useful in any way, please please PLEASE consider helping out - even just a little bit! It helps immensely!
 Donate here:
 
-<img src="images/btc.png" width="50%" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc">
-<img src="images/bch.png" width="50%" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh">
+<img src="images/btc.png" width="100px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="100px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh">
 
 **Attention!! This project is *early* alpha and many things have yet to be implemented:**
 - *mmap()*ed file
@@ -32,10 +31,12 @@ If compiled as C++ a number of unit-tests will be executed during compilation. T
 ## Using
 _**Attention** This database is not yet production-ready! Proceed accordingly!_
 
+The database can also be operated entirely during compile time, providing you with a compile-time key/value store.
 
 
 ## Similar projects
 Nanopulse is a tiny database engine with limited features designed for a niche purpose. If you need a more established library we encourage you to check out these:
+
 [RocksDB](https://github.com/facebook/rocksdb) High performance, log based k/v 
 
 [LMDB](https://github.com/LMDB/lmdb) Very popular                                              
