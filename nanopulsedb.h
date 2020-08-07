@@ -20,7 +20,7 @@
         BSV:  15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP
         ETH:  0x32a42d02eB021914FE8928d4A60332970F96f2cd
         DCR:  DsWY2Z1NThKqumM6x9oiyM3f2RkW28ruoyA
-        LTC:
+        LTC:  LWZ5HCcpModc1XcFpjEzz25J58eeQ8fJ7F
         DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
       Thank you in advance!
       
@@ -39,7 +39,7 @@
 #else
   #define COMPTIME static const
   #define constexpr
-  #define nullptr NULL
+  #define nullptr ((void *)0)
   enum {false=0,true=1};
   typedef int bool;
   #define CTOR3(x,y,z)
@@ -52,9 +52,9 @@ typedef unsigned (*pnplse__bitvecAlloc)(struct nplse__bitvec *bitvec, int amount
 
 typedef struct nplse__bitvec
 {
-    CTOR3(nplse__bitvec() : bitvec(nullptr), size(0), nplse__bitvecAlloc(nullptr) {} )
+    CTOR3(nplse__bitvec() : bitvec(nullptr), szVec(0), nplse__bitvecAlloc(nullptr) {} )
     unsigned *bitvec;
-    int size;
+    int szVec;
     pnplse__bitvecAlloc nplse__bitvecAlloc;
 } nplse__bitvec;
 
@@ -88,17 +88,20 @@ typedef struct nanopulseDB
     unsigned char *mappedfile;
     nplse__bitvec occupied;
     int szMappedfile;
-    int chunkSize;
+    int pageSize;
     
     // List:
     nplse__skipnode *nodeVec;
-    int rootA=0, rootB=0, rootC=0, rootD=0;
-    int nKeys = 0;
-    int nAllocatedSlots = 32;
+    int headA,//=0,
+    headB,//=0,
+    headC,//=0,
+    headD;//=0;
+    int nKeys;// = 0;
+    int nAllocatedSlots;// = 32;
     //int addressNewNode = 0;
     
     // Hashing:
-    unsigned seed = 0;
+    unsigned seed;// = 0;
 } nanopulseDB;
 
 
@@ -244,7 +247,7 @@ constexpr unsigned nplse__testSkiplist()
     nplse__skipnode testNodes[32];
     nanopulseDB testDB{ .mappedfile=nullptr,
                         .szMappedfile=0,
-                        .chunkSize=0,
+                        .pageSize=0,
                         .nodeVec=testNodes,
                         .seed=0
                       };
