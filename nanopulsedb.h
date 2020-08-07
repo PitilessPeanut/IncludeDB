@@ -189,6 +189,26 @@ static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsig
     return h;
 }
 
+static int nplse__bitvecAlloc(nplse__bitvec *bitvec)
+{
+    
+    // bitvec->szVec += amount;
+    // alloc 32bit!
+    return 1; // error
+}
+
+static constexpr unsigned nplse__bitvecCheck(const nplse__bitvec *bitvec, int pos)
+{
+    const unsigned bit = bitvec->bitvec[pos>>5];
+    return (bit >> (pos&31)) & 1;
+}
+
+static constexpr void nplse__bitvecSet(nplse__bitvec *bitvec, int pos)
+{
+    const unsigned bit = 1 << (pos&31);
+    bitvec->bitvec[pos>>5] |= bit;
+}
+
 inline constexpr void nplse__insertSkipnode(nanopulseDB *instance, unsigned key, int filepos)
 {
     const int newNodeAddr = nplse__getNewNodePos(instance);
@@ -240,6 +260,35 @@ inline constexpr nplse__skipnode *nplse__findSkipnode(nanopulseDB *instance, con
 
 
 #if defined(COMP_AS_CPP)
+
+constexpr unsigned nplse__testBitvec()
+{
+    unsigned bitvecBits[3] = {0};
+    nplse__bitvec testBitvec;
+    testBitvec.bitvec = bitvecBits;
+    testBitvec.szVec  = 1;
+    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->unsigned{ return (bitvec->szVec < 3) ? 0 : 1; };
+    testBitvec.nplse__bitvecAlloc = testAlloc;
+    for (int i=0; i<64; ++i)
+        nplse__bitvecSet(&testBitvec, i);
+    const bool TEST_BIT_63 =  nplse__bitvecCheck(&testBitvec, 63)
+                           && !nplse__bitvecCheck(&testBitvec, 64);
+    nplse__bitvecSet(&testBitvec, 64);
+    const bool TEST_BIT_64 =  nplse__bitvecCheck(&testBitvec, 64)
+                           && !nplse__bitvecCheck(&testBitvec, 65);
+    // overcommit:
+    for (int i=0; i<96; ++i)
+        nplse__bitvecSet(&testBitvec, i);
+    //todo ^^
+    
+    return  TEST_BIT_63
+         | (TEST_BIT_64 << 1);
+}
+static constexpr unsigned resBitvec = nplse__testBitvec();
+
+static_assert(resBitvec&    1, "bit 31 not correct");
+static_assert(resBitvec&    2, "bit 32 not correct");
+
 
 constexpr unsigned nplse__testSkiplist()
 {
