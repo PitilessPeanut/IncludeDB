@@ -45,6 +45,12 @@
   #define CTOR3(x,y,z)
 #endif
 
+#ifndef NANOPULSE_MALLOC
+  #include <stdlib.h>
+  #define nplse__malloc(sz)          malloc(sz)
+  #define nplse__realloc(p,newsz)    realloc(p,newsz)
+  #define nplse__free(p)             free(p)
+#endif
 
 struct nplse__bitvec;
 
@@ -92,16 +98,13 @@ typedef struct nanopulseDB
     
     // List:
     nplse__skipnode *nodeVec;
-    int headA,//=0,
-    headB,//=0,
-    headC,//=0,
-    headD;//=0;
-    int nKeys;// = 0;
-    int nAllocatedSlots;// = 32;
+    int headA=0, headB=0, headC=0, headD=0;
+    int nKeys = 0;
+    int nAllocatedSlots = 32;
     //int addressNewNode = 0;
     
     // Hashing:
-    unsigned seed;// = 0;
+    unsigned seed = 0;
 } nanopulseDB;
 
 
@@ -267,7 +270,7 @@ constexpr unsigned nplse__testBitvec()
     nplse__bitvec testBitvec;
     testBitvec.bitvec = bitvecBits;
     testBitvec.szVec  = 1;
-    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->unsigned{ return (bitvec->szVec < 3) ? 0 : 1; };
+    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->unsigned{ return 1; };
     testBitvec.nplse__bitvecAlloc = testAlloc;
     for (int i=0; i<64; ++i)
         nplse__bitvecSet(&testBitvec, i);
@@ -276,18 +279,86 @@ constexpr unsigned nplse__testBitvec()
     nplse__bitvecSet(&testBitvec, 64);
     const bool TEST_BIT_64 =  nplse__bitvecCheck(&testBitvec, 64)
                            && !nplse__bitvecCheck(&testBitvec, 65);
-    // overcommit:
-    for (int i=0; i<96; ++i)
-        nplse__bitvecSet(&testBitvec, i);
-    //todo ^^
     
     return  TEST_BIT_63
          | (TEST_BIT_64 << 1);
 }
 static constexpr unsigned resBitvec = nplse__testBitvec();
 
-static_assert(resBitvec&    1, "bit 31 not correct");
-static_assert(resBitvec&    2, "bit 32 not correct");
+static_assert(resBitvec&    1, "bit 63 not correct");
+static_assert(resBitvec&    2, "bit 64 not correct");
+
+
+constexpr unsigned nplse__testSlots()
+{
+    nanopulseDB testDB{ .mappedfile=nullptr,
+                        .szMappedfile=0,
+                        .pageSize=0,
+                        .nodeVec=nullptr,
+                        .seed=0
+                      };
+    unsigned bitvecBits[3/* *32 */] = {0};
+    testDB.occupied.bitvec = bitvecBits;
+    testDB.occupied.szVec  = 1;
+    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->unsigned
+                     {
+                         if ((bitvec->szVec+amount) <= 3)
+                         {
+                             bitvec->szVec += amount;
+                             return 0;
+                         }
+                         return 1;
+                     };
+    testDB.occupied.nplse__bitvecAlloc = testAlloc;
+    const bool TEST_HAVE_ZERO_SLOTS = nplse__gatherSlots(&testDB, 0) == 0;
+    int location = nplse__gatherSlots(&testDB, 2);
+    nplse__markSlots(&testDB.occupied, location, 2);
+    const bool TEST_TWO_SLOTS_OCCUPIED =  (bitvecBits[0]&1)
+                                       && (bitvecBits[0]&2)
+                                       && !(bitvecBits[0]&4)
+                                       && location==0;
+    location = nplse__gatherSlots(&testDB, 1);
+    nplse__markSlots(&testDB.occupied, location, 1);
+    const bool TEST_LOCATION_TWO = location == 2;
+    location = nplse__gatherSlots(&testDB, 7);
+    nplse__markSlots(&testDB.occupied, location, 7);
+    const bool TEST_LOCATION_THREE = location == 3;
+    // test large allocation:
+    location = nplse__gatherSlots(&testDB, 24+39);
+    nplse__markSlots(&testDB.occupied, location, 24+39);
+    const bool TEST_LOCATION_EIGHT = location == 10;
+    location = nplse__gatherSlots(&testDB, 22);
+    nplse__markSlots(&testDB.occupied, location, 22);
+    const bool TEST_LOCATION_DEEP = location == 10+24+39;
+    const bool TEST_ALL_FLAGS_SET =  !(bitvecBits[0]^0xffffffff)
+                                  && !(bitvecBits[1]^0xffffffff)
+                                  && !(bitvecBits[2]^0x7fffffff)
+    //&& !(bitvecBits[2]^0b00000000000000000000000011111111)
+    //&& !(bitvecBits[2]^0b1111111111111111111111111111111)
+    //&& bitvecBits[2] > 0x1fffffffu
+    ;
+    
+    // todo: test free slots!
+    
+    
+    return  TEST_HAVE_ZERO_SLOTS
+         | (TEST_TWO_SLOTS_OCCUPIED<< 1)
+         | (TEST_LOCATION_TWO<< 2)
+         | (TEST_LOCATION_THREE<< 3)
+         | (TEST_LOCATION_EIGHT<< 4)
+         | (TEST_LOCATION_DEEP<< 5)
+         | (TEST_ALL_FLAGS_SET<< 6)
+         ;
+}
+static constexpr unsigned resSlots = nplse__testSlots();
+
+static_assert(resSlots&    1, "couldn't gather 0 slots");
+static_assert(resSlots&    2, "slots were not correctly marked as 'occupied'");
+static_assert(resSlots&    4, "incorrect slot position (2)");
+static_assert(resSlots&    8, "incorrect slot position (3)");
+static_assert(resSlots&   16, "incorrect slot position (8)");
+static_assert(resSlots&   32, "incorrect slot position (8+24+39)");
+static_assert(resSlots&   64, "flags set incorrectly");
 
 
 constexpr unsigned nplse__testSkiplist()
