@@ -88,28 +88,43 @@ typedef struct nplse__skipnode
  4. bloom
  */
 
+struct nanopulseDB;
+
+typedef int (*pnplse__write)(struct nanopulseDB *instance, int location, int amount);
+typedef void (*pnplse__read)(struct nanopulseDB *instance, int location, int amount);
+
 typedef struct nanopulseDB
 {
+    // Buffer:
+    unsigned char *buffer;
+    int szBuf;
+    
     // File:
-    unsigned char *mappedfile;
+    union
+    {
+        void *ctx;
+        unsigned char *mappedArray;
+    };
     nplse__bitvec occupied;
-    int szMappedfile;
+    int currentFilesize;
     int pageSize;
+    pnplse__write nplse__write;
+    pnplse__read nplse__read;
     
     // List:
     nplse__skipnode *nodeVec;
-    int headA=0, headB=0, headC=0, headD=0;
-    int nKeys = 0;
-    int nAllocatedSlots = 32;
+    int headA, headB, headC, headD;
+    int nKeys;
+    //int nAllocatedSlots = 32;
     //int addressNewNode = 0;
     
     // Hashing:
-    unsigned seed = 0;
+    unsigned seed;
 } nanopulseDB;
 
 
 
-
+#include <stdio.h> // todo: temporary
 // Public interface
 //static nplse *nplse_open(*test);
 //static void nplse_close(nplse *instance);
@@ -196,7 +211,7 @@ static int nplse__bitvecAlloc(nplse__bitvec *bitvec)
 {
     
     // bitvec->szVec += amount;
-    // alloc 32bit!
+    // alloc 32bit! sizeof(int)
     return 1; // error
 }
 
@@ -259,6 +274,51 @@ inline constexpr nplse__skipnode *nplse__findSkipnode(nanopulseDB *instance, con
     return nullptr;
 }
 
+COMPTIME int nplse__header_keyhashLen        = 4;
+COMPTIME int nplse__header_keylenLen         = 4;
+COMPTIME int nplse__header_vallenLen         = 4;
+COMPTIME int nplse__header_recordPriorityLen = 4;
+
+
+
+
+
+
+
+
+
+
+
+
+static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen)
+{
+}
+
+static nanopulseDB *nplse_open(const char *filename)
+{
+    nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
+    if (!newInstance)
+        return nullptr;
+    FILE *fd = fopen(filename, "rb");
+    if (!fd)
+        return nullptr;
+    
+    return newInstance;
+}
+
+static void nplse_close(nanopulseDB *instance)
+{
+    nplse__free(instance->buffer);
+}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -291,8 +351,8 @@ static_assert(resBitvec&    2, "bit 64 not correct");
 
 constexpr unsigned nplse__testSlots()
 {
-    nanopulseDB testDB{ .mappedfile=nullptr,
-                        .szMappedfile=0,
+    nanopulseDB testDB{ .mappedArray=nullptr,
+                        .currentFilesize=0,
                         .pageSize=0,
                         .nodeVec=nullptr,
                         .seed=0
@@ -365,8 +425,8 @@ constexpr unsigned nplse__testSkiplist()
 {
     // setup:
     nplse__skipnode testNodes[32];
-    nanopulseDB testDB{ .mappedfile=nullptr,
-                        .szMappedfile=0,
+    nanopulseDB testDB{ .mappedArray=nullptr,
+                        .currentFilesize=0,
                         .pageSize=0,
                         .nodeVec=testNodes,
                         .seed=0
