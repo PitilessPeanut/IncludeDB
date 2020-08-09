@@ -8,7 +8,7 @@ Meant to be used in environments with limited resources or in situations where a
 If you like this project or find it useful in any way, please please PLEASE consider helping out - even just a little bit! It helps immensely!
 Donate here:
 
-<img src="images/btc.png" width="150px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="150px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh">
+<img src="images/btc.png" width="150px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="150px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh"><img src="images/bsv.png" width="150px" alt="15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP"><img src="images/eth.png" width="150px" alt="0x32a42d02eB021914FE8928d4A60332970F96f2cd">
 
 **Attention!! This project is *early* alpha and many things have yet to be implemented:**
 - *mmap()*ed file
@@ -26,6 +26,8 @@ Donate here:
 
 ## Building
 A build process is not required, simply drop *nanopulsedb.h* into your project and use.
+#### Demo
+Building the example program can be done with just ``cc -o demo demo_nanopulsedb.c`` When run, a _"hello.dat"_ file will be created.
 #### Compile-time tests
 If compiled as C++ a number of unit-tests will be executed during compilation. To disable this behaviour ```#define DISABLE_CPP``` before *#including* this file.
 
