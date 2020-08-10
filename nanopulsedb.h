@@ -227,6 +227,42 @@ static constexpr void nplse__bitvecSet(nplse__bitvec *bitvec, int pos)
     bitvec->bitvec[pos>>5] |= bit;
 }
 
+inline constexpr int nplse__gatherSlots(nanopulseDB *instance, int requiredSlots)
+{
+    bool haveAvail = false;
+    int location = 0;
+    nplse__bitvec *bitvec = &instance->occupied;
+    for (; location<((bitvec->szVec*32)-requiredSlots) && !haveAvail; ++location)
+        if (nplse__bitvecCheck(bitvec, location) == 0)
+        {
+            haveAvail = true;
+            for (int i=1; i<requiredSlots-1; ++i)
+                haveAvail = haveAvail && (nplse__bitvecCheck(bitvec, location+i) == 0);
+        }
+    location -= 1;
+    if (!haveAvail)
+    {
+        // make room:
+        const int amount = (requiredSlots/32) + 1;
+        if (bitvec->nplse__bitvecAlloc(bitvec, amount))
+            return -1; // failed
+        // todo : grow file
+        return nplse__gatherSlots(instance, requiredSlots);
+    }
+    return location;
+}
+
+inline constexpr void nplse__markSlots(nplse__bitvec *bitvec, int start, int len)
+{
+    for (int i=0; i<len; i++)
+        nplse__bitvecSet(bitvec, start+i);
+}
+
+inline constexpr int nplse__getNewKeyPos(nanopulseDB *instance)
+{
+    return instance->nKeys++;
+}
+
 inline constexpr void nplse__insertSkipnode(nanopulseDB *instance, unsigned key, int filepos)
 {
     const int newNodeAddr = nplse__getNewNodePos(instance);
