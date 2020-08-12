@@ -36,6 +36,8 @@ _**Attention** This code is not yet production-ready! Proceed accordingly!_
 
 The database can also be operated entirely during compile time, providing you with a compile-time key/value store.
 
+#### Javascript visualization
+*algo-visualize.js* is provided and can be run on algorithm-visualizer.org to show the mechanism of the underlying algorithm. 
 
 ## Similar projects
 Nanopulse is a tiny database engine with limited features designed for a niche purpose. If you need a more established library we encourage you to check out these:

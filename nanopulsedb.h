@@ -52,6 +52,10 @@
   #define nplse__free(p)             free(p)
 #endif
 
+
+#include <stdio.h> // todo: temporary
+
+
 struct nplse__bitvec;
 
 typedef unsigned (*pnplse__bitvecAlloc)(struct nplse__bitvec *bitvec, int amount);
@@ -124,10 +128,27 @@ typedef struct nanopulseDB
 
 
 
-#include <stdio.h> // todo: temporary
-// Public interface
-//static nplse *nplse_open(*test);
-//static void nplse_close(nplse *instance);
+
+/*
+ ------------------------------------------------------------------------------
+    Public interface
+*/
+
+// Add a new record
+static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen);
+
+// Get a pointer to an existing record. Calling this is going to invalidate previously retuned pointers
+static constexpr unsigned char *nplse_get(nanopulseDB *instance, unsigned char *key, int keylen, int *vallen);
+
+// Open existing, or create new
+static nanopulseDB *nplse_open(const char *filename);
+
+// Close. Must be called to ensure all changes are written to disk
+static void nplse_close(nanopulseDB *instance);
+
+
+
+
 
 
 
@@ -540,7 +561,7 @@ static_assert(true);
 
 /*
  ------------------------------------------------------------------------------
- Copyright (c) 2020 Stephen van Helsing
+ Copyright (c) 2020 Professor Peanut
  
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -560,4 +581,4 @@ static_assert(true);
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
  ------------------------------------------------------------------------------
- */
+*/
