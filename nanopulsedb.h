@@ -45,16 +45,6 @@
   #define CTOR3(x,y,z)
 #endif
 
-#ifndef NANOPULSE_MALLOC
-  #include <stdlib.h>
-  #define nplse__malloc(sz)          malloc(sz)
-  #define nplse__realloc(p,newsz)    realloc(p,newsz)
-  #define nplse__free(p)             free(p)
-#endif
-
-
-#include <stdio.h> // todo: temporary
-
 
 struct nplse__bitvec;
 
@@ -154,6 +144,15 @@ static void nplse_close(nanopulseDB *instance);
 
 
 #ifdef NANOPULSE_DB_IMPLEMENTATION
+
+#ifndef NANOPULSE_MALLOC
+  #include <stdlib.h>
+  #define nplse__malloc(sz)          malloc(sz)
+  #define nplse__realloc(p,newsz)    realloc(p,newsz)
+  #define nplse__free(p)             free(p)
+#endif
+
+#include <stdio.h>
 
 static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsigned seed)
 {

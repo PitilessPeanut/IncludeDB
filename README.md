@@ -20,6 +20,7 @@ Donate here:
 - *delete* a key/value pair
 - large file stress tests
 - file lock
+- integrity check
 - maybe more stuff, such as a standalone version. I'm open for suggestions...
 - **A logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
 

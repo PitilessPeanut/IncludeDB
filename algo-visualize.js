@@ -11,35 +11,44 @@ var nn = [  [0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0] ];
+var vv = [  0,  0,  0,  0,  0,  0,  0];
 const N = ni.length;
 
 // define tracer variables {
 const tracerids = new Array1DTracer('ids');
 const tracerfile = new Array1DTracer('filepos');
 const tracernext = new Array2DTracer('next');
+const tracervis = new Array1DTracer('visits');
 const logger = new LogTracer('Console');
-Layout.setRoot(new VerticalLayout([tracerids, tracerfile, tracernext, logger]));
+Layout.setRoot(new VerticalLayout([tracerids,
+                                   tracerfile,
+                                   tracernext,
+                                   tracervis,
+                                   logger]));
 tracerids.set(ni);
 tracerfile.set(nf);
 tracernext.set(nn);
+tracervis.set(vv);
 Tracer.delay();
 // }
 
-var headD = 0;
-var nKeys = 0;
+var heads = [0,0,0,0];
+var visits = [0,0,0,0];
+var nKeys = 0;//[0,0,0,0];
+var nBottomLen = 0;
 
 function getNewNodePos() {
     return nKeys++;
 }
 
-function insertSkipnode(key, filepos) {
+function insertSkipnode(key, filepos, layer) {
     const newNodeAddr = getNewNodePos();
     // visualize {
     logger.println(`new node addr: ${newNodeAddr}`);
     logger.println(`nKeys: ${nKeys}`);
     tracerids.select(newNodeAddr);
     tracerfile.select(newNodeAddr);
-    tracernext.select(3, newNodeAddr)
+    tracernext.select(layer, newNodeAddr)
     Tracer.delay();
     // }
     ni[newNodeAddr] = key;
@@ -52,22 +61,22 @@ function insertSkipnode(key, filepos) {
     tracerfile.depatch(newNodeAddr);
     // }
     
-    if (key < ni[headD]) {
-        nn[newNodeAddr] = headD;
+    if (key < ni[heads[layer]]) {
+        nn[layer][newNodeAddr] = heads[layer];
         // visualize {
-        tracernext.patch(3, newNodeAddr, headD);
+        tracernext.patch(layer, newNodeAddr, heads[layer]);
         Tracer.delay();
-        tracernext.depatch(3, newNodeAddr);
+        tracernext.depatch(layer, newNodeAddr);
         // }
-        headD = newNodeAddr;
+        heads[layer] = newNodeAddr;
         return;
     }
     
-    var current = headD;
+    var current = heads[layer];
     var next = 0;
     
     for (var i=0; i<nKeys-2; i++) {
-        next = nn[current];
+        next = nn[layer][current];
         // visualize {
         logger.println(`  current: ${current}`);
         logger.println(`  next: ${next}`);
@@ -76,7 +85,7 @@ function insertSkipnode(key, filepos) {
         tracernext.deselect(0, 0, 3, 6);
         tracerids.select(current);
         tracerfile.select(current);
-        tracernext.select(3, current);
+        tracernext.select(layer, current);
         Tracer.delay();
         // }
         if (ni[next] > key) {
@@ -84,12 +93,12 @@ function insertSkipnode(key, filepos) {
             logger.println(`--- break ----`);
             Tracer.delay();
             // }
-            nn[newNodeAddr] = next;
+            nn[layer][newNodeAddr] = next;
             // visualize {
-            tracernext.patch(3, newNodeAddr, next);
+            tracernext.patch(layer, newNodeAddr, next);
             Tracer.delay();
-            tracernext.depatch(3, newNodeAddr);
-    // }
+            tracernext.depatch(layer, newNodeAddr);
+            // }
             break;
         }
         current = next;
@@ -103,56 +112,113 @@ function insertSkipnode(key, filepos) {
 
     
     
-    nn[current] = newNodeAddr;
+    nn[layer][current] = newNodeAddr;
     // visualize {
-    tracernext.patch(3, current, newNodeAddr);
+    tracernext.patch(layer, current, newNodeAddr);
     Tracer.delay();
-    tracernext.depatch(3, current);
+    tracernext.depatch(layer, current);
     // }
 }
 
+function promoteSkipnode(key, layer) {
+    
+}
+
+function findSkipnode(key, layer) {
+    var current = heads[layer];
+    for (var i=0; i<nKeys; i++) {
+        // visualize {
+        tracerids.select(current);
+        tracerfile.select(current);
+        tracernext.select(layer, current);
+        Tracer.delay();
+        tracerids.deselect(0, N-1);
+        tracerfile.deselect(0, N-1);
+        tracernext.deselect(0, 0, 3, 6);
+        // }
+        if (/*ni[current] === 0 ||*/ layer <3 && ni[current] > key) {
+            // overshoot or empty
+            // visualize {
+            tracervis.select(current);
+            logger.println(`layer: ${layer}`);
+            Tracer.delay();
+            tracervis.deselect(0, N-1);
+            // }
+            return findSkipnode(key, layer+1);
+        } else if (ni[current] === key) {
+            vv[current] += 1;
+            visits[layer] += 1;
+            if (((vv[current]*100) / visits[layer]) > 20) {
+                // promote:
+                // visualize {
+                logger.println(`promote: ${layer-1} `);
+                Tracer.delay();
+                // }
+                insertSkipnode(key, /*nf[current]*/321, layer-1);
+            }
+            
+            // visualize {
+            tracervis.patch(current, vv[current]);
+            Tracer.delay();
+            tracervis.depatch(current);
+            // }
+            return current;
+        }
+        current = nn[layer][current];
+    }
+    return "not found";
+}
+
 function start() {
-    insertSkipnode(500, 0);
+    insertSkipnode(500, 0, 3);
     // visualize {
     tracerids.deselect(0, N-1);
     tracerfile.deselect(0, N-1);
     tracernext.deselect(0, 0, 3, 6);
     // }
-    insertSkipnode(111, 1);
+    insertSkipnode(111, 1, 3);
     // visualize {
     tracerids.deselect(0, N-1);
     tracerfile.deselect(0, N-1);
     tracernext.deselect(0, 0, 3, 6);
     // }
-    insertSkipnode(444, 2);
+    insertSkipnode(444, 2, 3);
     // visualize {
     tracerids.deselect(0, N-1);
     tracerfile.deselect(0, N-1);
     tracernext.deselect(0, 0, 3, 6);
     // }
-    insertSkipnode(222, 3);
+    insertSkipnode(222, 3, 3);
     // visualize {
     tracerids.deselect(0, N-1);
     tracerfile.deselect(0, N-1);
     tracernext.deselect(0, 0, 3, 6);
     // }
-    insertSkipnode(333, 4);
+    insertSkipnode(333, 4, 3);
     // visualize {
     tracerids.deselect(0, N-1);
     tracerfile.deselect(0, N-1);
     tracernext.deselect(0, 0, 3, 6);
     // }
-    insertSkipnode(44, 5);
+    insertSkipnode(44, 5, 3);
     // visualize {
     tracerids.deselect(0, N-1);
     tracerfile.deselect(0, N-1);
     tracernext.deselect(0, 0, 3, 6);
     // }
-    insertSkipnode(555, 6);
+    insertSkipnode(555, 6, 3);
     // visualize {
     tracerids.deselect(0, N-1);
     tracerfile.deselect(0, N-1);
     tracernext.deselect(0, 0, 3, 6);
+    // }
+    const resA = findSkipnode(123, 0);
+    // visualize {
+    logger.println(`resA (should be 'not found'): ${resA}`);
+    // }
+    const resB = findSkipnode(222, 0);
+    // visualize {
+    logger.println(`resB (should be 3): ${resB}`);
     // }
 }
 
