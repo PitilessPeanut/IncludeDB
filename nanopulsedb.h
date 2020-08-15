@@ -28,6 +28,13 @@
 #ifndef NANOPULSE_DB_H
 #define NANOPULSE_DB_H
 
+#define NANOPULSE_VERSION_MAJOR 0
+#define NANOPULSE_VERSION_MINOR 1
+#define NANOPULSE_VERSION_PATCH 0
+#define NANOPULSE_VERSION_NUM ((NANOPULSE_VERSION_MAJOR<<24) | \
+                               (NANOPULSE_VERSION_MINOR<<16) | \
+                               (NANOPULSE_VERSION_PATCH<< 8))
+
 #if defined(__cplusplus) && !defined(DISABLE_CPP)
   #define COMP_AS_CPP
 #endif
@@ -81,6 +88,14 @@ typedef struct nplse__skipnode
  4. bloom
  */
 
+#if !defined(NANOPULSE_CHUNK_SIZE)
+  #define NANOPULSE_CHUNK_SIZE 256
+#endif
+
+#if !defined(NANOPULSE_CACHE_SIZE)
+  #define NANOPULSE_CACHE_SIZE (7*NANOPULSE_CHUNK_SIZE)
+#endif
+
 struct nanopulseDB;
 
 typedef int (*pnplse__write)(struct nanopulseDB *instance, int location, int amount);
@@ -110,8 +125,14 @@ typedef struct nanopulseDB
     //int nAllocatedSlots = 32;
     //int addressNewNode = 0;
     
+    // Cache
+    // cachesize // max # of entries in cache = sz/chunksize - - can be less than that
+    
     // Hashing:
     unsigned seed;
+    
+    // Error:
+    char error[80];
 } nanopulseDB;
 
 
@@ -148,10 +169,6 @@ static void nplse_close(nanopulseDB *instance);
   #define nplse__malloc(sz)          malloc(sz)
   #define nplse__realloc(p,newsz)    realloc(p,newsz)
   #define nplse__free(p)             free(p)
-#endif
-
-#if defined(CHUNK_SIZE)
-  #define CHUNK_SIZE 256
 #endif
 
 
@@ -359,6 +376,12 @@ static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, 
 
 static nanopulseDB *nplse_open(const char *filename)
 {
+    COMPTIME unsigned version = NANOPULSE_VERSION_NUM;
+    COMPTIME unsigned char versionStr[] = { (version>>24)&0xff,
+                                            (version>>16)&0xff,
+                                            (version>> 8)&0xff,
+                                             version &0xff
+                                          };
     nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
     if (!newInstance)
         return nullptr;
@@ -368,15 +391,23 @@ static nanopulseDB *nplse_open(const char *filename)
         pFile = fopen(filename, "wb+");
         if (!pFile)
             return nullptr;
+        // write signature/magic
+        fwrite("npdb", sizeof(char), 4, pFile);
+        // write version
+        fwrite(versionStr, sizeof(unsigned char), 4, pFile);
+         
+         
         // todo create sede
     }
     else
     {
         // read npdb
-        // read version
+        // read version vs minimum required '>'
         // read randseed
         // read chunksz
         // chunkSize =
+         
+        // if # of total acces > some 'limit', /2!!
     }
     // Create buffer:
     newInstance->buffer = (unsigned char *)nplse__malloc(sizeof(unsigned char) * 32);
@@ -385,7 +416,19 @@ static nanopulseDB *nplse_open(const char *filename)
     newInstance->file = (FILE *)pFile;
     
     
-
+    //fseek(pFile, 0, SEEK_END);
+    //newInstance->currentFilesize = ftell(pFile);
+    fseek(pFile, 0, SEEK_SET);
+    
+    char txt[120];
+    fread(txt, 1, 20, pFile);
+    
+    printf("txt: %s \n", txt);
+    
+    fseek(pFile, 190, SEEK_SET); // overwrites!
+     
+     
+    // setup bitvec
     
     
     
@@ -411,6 +454,13 @@ static void nplse_close(nanopulseDB *instance)
 
 
 #if defined(COMP_AS_CPP)
+
+constexpr unsigned nplse__testBoyerMoore()
+{
+    return 0;
+}
+static constexpr unsigned resBoyerMoore = nplse__testBoyerMoore();
+
 
 constexpr unsigned nplse__testBitvec()
 {
