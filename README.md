@@ -3,6 +3,14 @@
 An [stb](https://github.com/nothings/stb/)-style *#include*-only single-header k/v store implemented in C99 with an emphasis on easy-of-use.
 Meant to be used in environments with limited resources or in situations where a more complex database library would be an overkill such as small games.
 
+
+
+
+
+basic key/value-store in a single, embeddable C file
+
+
+
 ## THIS PROJECT NEEDS YOUR SUPPORT!
 
 If you like this project or find it useful in any way, please please PLEASE consider helping out - even just a little bit! It helps immensely!
@@ -51,5 +59,7 @@ Nanopulse is a tiny database engine with limited features designed for a niche p
 
 [SQLite](https://github.com/sqlite/sqlite) Battle tested. Popular in browsers/etc. 
 
-[Unqlite](https://github.com/symisc/unqlite)                                                                        
+[Unqlite](https://github.com/symisc/unqlite)          
+
+[Sparkey](https://github.com/spotify/sparkey)
                                                                                                   

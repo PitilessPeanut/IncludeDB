@@ -13,15 +13,14 @@
   HISTORY
       0.1.0  Initial release
  
-  DONATE
-      This project cannot continue without YOU! Please support! It is MUCH appreciated!
-        BTC:  1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc
-        BCH:  qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh
-        BSV:  15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP
-        ETH:  0x32a42d02eB021914FE8928d4A60332970F96f2cd
-        DCR:  DsWY2Z1NThKqumM6x9oiyM3f2RkW28ruoyA
-        LTC:  LWZ5HCcpModc1XcFpjEzz25J58eeQ8fJ7F
-        DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
+  GIBS
+      BTC:  1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc
+      BCH:  qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh
+      BSV:  15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP
+      ETH:  0x32a42d02eB021914FE8928d4A60332970F96f2cd
+      DCR:  DsWY2Z1NThKqumM6x9oiyM3f2RkW28ruoyA
+      LTC:  LWZ5HCcpModc1XcFpjEzz25J58eeQ8fJ7F
+      DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
       Thank you in advance!
       
 */
@@ -96,14 +95,13 @@ typedef struct nanopulseDB
     // File:
     union
     {
-        void *ctx;
+        void *file;
         unsigned char *mappedArray;
     };
-    nplse__bitvec occupied;
-    int currentFilesize;
-    int pageSize;
+    int chunkSize;
     pnplse__write nplse__write;
     pnplse__read nplse__read;
+    nplse__bitvec occupied;
     
     // List:
     nplse__skipnode *nodeVec;
@@ -152,7 +150,15 @@ static void nplse_close(nanopulseDB *instance);
   #define nplse__free(p)             free(p)
 #endif
 
+#if defined(CHUNK_SIZE)
+  #define CHUNK_SIZE 256
+#endif
+
+
 #include <stdio.h>
+// cachesize // max # of entries in cache = sz/chunksize - - can be less than that
+
+
 
 static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsigned seed)
 {
@@ -235,13 +241,13 @@ static int nplse__bitvecAlloc(nplse__bitvec *bitvec)
     return 1; // error
 }
 
-static constexpr unsigned nplse__bitvecCheck(const nplse__bitvec *bitvec, int pos)
+inline constexpr unsigned nplse__bitvecCheck(const nplse__bitvec *bitvec, int pos)
 {
     const unsigned bit = bitvec->bitvec[pos>>5];
     return (bit >> (pos&31)) & 1;
 }
 
-static constexpr void nplse__bitvecSet(nplse__bitvec *bitvec, int pos)
+inline constexpr void nplse__bitvecSet(nplse__bitvec *bitvec, int pos)
 {
     const unsigned bit = 1 << (pos&31);
     bitvec->bitvec[pos>>5] |= bit;
@@ -285,7 +291,7 @@ inline constexpr int nplse__getNewKeyPos(nanopulseDB *instance)
 
 inline constexpr void nplse__insertSkipnode(nanopulseDB *instance, unsigned key, int filepos)
 {
-    const int newNodeAddr = nplse__getNewNodePos(instance);
+    const int newNodeAddr = nplse__getNewKeyPos(instance);
     instance->nodeVec[newNodeAddr].nodeid  = key;
     instance->nodeVec[newNodeAddr].filepos = filepos;
     
@@ -348,6 +354,7 @@ COMPTIME int nplse__header_recordPriorityLen = 4;
 
 static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen)
 {
+    return -1;
 }
 
 static nanopulseDB *nplse_open(const char *filename)
@@ -355,9 +362,32 @@ static nanopulseDB *nplse_open(const char *filename)
     nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
     if (!newInstance)
         return nullptr;
-    FILE *fd = fopen(filename, "rb");
-    if (!fd)
-        return nullptr;
+    FILE *pFile = fopen(filename, "rb+");
+    if (!pFile)
+    {
+        pFile = fopen(filename, "wb+");
+        if (!pFile)
+            return nullptr;
+        // todo create sede
+    }
+    else
+    {
+        // read npdb
+        // read version
+        // read randseed
+        // read chunksz
+        // chunkSize =
+    }
+    // Create buffer:
+    newInstance->buffer = (unsigned char *)nplse__malloc(sizeof(unsigned char) * 32);
+    newInstance->szBuf = 1;
+    // Attach file:
+    newInstance->file = (FILE *)pFile;
+    
+    
+
+    
+    
     
     return newInstance;
 }
@@ -365,6 +395,8 @@ static nanopulseDB *nplse_open(const char *filename)
 static void nplse_close(nanopulseDB *instance)
 {
     nplse__free(instance->buffer);
+    fclose((FILE *)instance->file); // todo wrap
+    nplse__free(instance);
 }
 
 
@@ -408,8 +440,7 @@ static_assert(resBitvec&    2, "bit 64 not correct");
 constexpr unsigned nplse__testSlots()
 {
     nanopulseDB testDB{ .mappedArray=nullptr,
-                        .currentFilesize=0,
-                        .pageSize=0,
+                        .chunkSize=0,
                         .nodeVec=nullptr,
                         .seed=0
                       };
@@ -482,8 +513,7 @@ constexpr unsigned nplse__testSkiplist()
     // setup:
     nplse__skipnode testNodes[32];
     nanopulseDB testDB{ .mappedArray=nullptr,
-                        .currentFilesize=0,
-                        .pageSize=0,
+                        .chunkSize=0,
                         .nodeVec=testNodes,
                         .seed=0
                       };
