@@ -11,9 +11,12 @@
       See end of file.
  
   HISTORY
-      0.1.0  Initial release
+       While in alpha, cross version compatibility is not guaranteed. Do not replace
+       this file if you need to keep your database readable.
+  
+       0.1.0  Initial release
  
-  GIBS
+  PEANUTS
       BTC:  1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc
       BCH:  qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh
       BSV:  15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP
@@ -73,20 +76,36 @@ typedef struct nplse__skipnode
     int next; // offset
 } nplse__skipnode;
 
-/*
- 1. ''priority' list
- 
- top list: must have 80%+
- next:               16%
- next                 3%
- next                 1%
- 
- 
- 2.hash
- 2. dyn array
- 3. bitvec
- 4. bloom
- */
+
+struct nplse__file;
+
+bool nplse__fileOpen(struct nplse__file *file, const char *filename);
+bool nplse__fileCreate(struct nplse__file *file, const char *filename);
+bool nplse__fileClose(struct nplse__file *file);
+
+#define NANOPULSE_USE_C_STD_FILE_OPS
+
+#if defined(NANOPULSE_USE_C_STD_FILE_OPS)
+  #include <stdio.h>
+  typedef struct nplse__file
+  {
+      FILE *pFile;
+  } nplse__file;
+  bool nplse__fileOpen(nplse__file *file, const char *filename)
+  {
+      file->pFile = fopen(filename, "rb+");
+      return !!file->pFile;
+  }
+  bool nplse__fileCreate(nplse__file *file, const char *filename)
+  {
+      file->pFile = fopen(filename, "wb+");
+      return !!file->pFile;
+  }
+  bool nplse__fileClose(nplse__file *file)
+  {
+      return fclose(file->pFile);
+  }
+#endif
 
 #if !defined(NANOPULSE_CHUNK_SIZE)
   #define NANOPULSE_CHUNK_SIZE 256
@@ -110,7 +129,7 @@ typedef struct nanopulseDB
     // File:
     union
     {
-        void *file;
+        nplse__file *file;
         unsigned char *mappedArray;
     };
     int chunkSize;
@@ -132,7 +151,7 @@ typedef struct nanopulseDB
     unsigned seed;
     
     // Error:
-    char error[80];
+    const char *error;
 } nanopulseDB;
 
 
@@ -141,6 +160,7 @@ typedef struct nanopulseDB
 /*
  ------------------------------------------------------------------------------
     Public interface
+ ------------------------------------------------------------------------------
 */
 
 // Add a new record
@@ -170,12 +190,6 @@ static void nplse_close(nanopulseDB *instance);
   #define nplse__realloc(p,newsz)    realloc(p,newsz)
   #define nplse__free(p)             free(p)
 #endif
-
-
-#include <stdio.h>
-// cachesize // max # of entries in cache = sz/chunksize - - can be less than that
-
-
 
 static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsigned seed)
 {
@@ -288,7 +302,10 @@ inline constexpr int nplse__gatherSlots(nanopulseDB *instance, int requiredSlots
         // make room:
         const int amount = (requiredSlots/32) + 1;
         if (bitvec->nplse__bitvecAlloc(bitvec, amount))
+        {
+            "sdcdv"
             return -1; // failed
+        }
         // todo : grow file
         return nplse__gatherSlots(instance, requiredSlots);
     }
@@ -385,12 +402,15 @@ static nanopulseDB *nplse_open(const char *filename)
     nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
     if (!newInstance)
         return nullptr;
-    FILE *pFile = fopen(filename, "rb+");
-    if (!pFile)
+    
+    if (!nplse__fileOpen(&newInstance->file, filename))
     {
-        pFile = fopen(filename, "wb+");
-        if (!pFile)
-            return nullptr;
+        if (!nplse__fileCreate(&newInstance->file, filename))
+        {
+            COMPTIME char error[] = "Couldn't create or open file";
+            newInstance->error = error;
+            return newInstance;
+        }
         // write signature/magic
         fwrite("npdb", sizeof(char), 4, pFile);
         // write version
@@ -412,23 +432,23 @@ static nanopulseDB *nplse_open(const char *filename)
     // Create buffer:
     newInstance->buffer = (unsigned char *)nplse__malloc(sizeof(unsigned char) * 32);
     newInstance->szBuf = 1;
-    // Attach file:
-    newInstance->file = (FILE *)pFile;
+
     
-    
-    //fseek(pFile, 0, SEEK_END);
-    //newInstance->currentFilesize = ftell(pFile);
-    fseek(pFile, 0, SEEK_SET);
-    
-    char txt[120];
-    fread(txt, 1, 20, pFile);
-    
-    printf("txt: %s \n", txt);
-    
-    fseek(pFile, 190, SEEK_SET); // overwrites!
-     
-     
-    // setup bitvec
+        //fseek(pFile, 0, SEEK_END);
+        //newInstance->currentFilesize = ftell(pFile);
+    //    fseek(pFile, 0, SEEK_SET);
+    //
+    //    char txt[120];
+    //    fread(txt, 1, 20, pFile);
+    //
+    //    printf("txt: %s \n", txt);
+    //
+    //    fseek(pFile, 190, SEEK_SET); // overwrites!
+        
+        
+        // setup bitvec
+        
+        
     
     
     
@@ -438,7 +458,7 @@ static nanopulseDB *nplse_open(const char *filename)
 static void nplse_close(nanopulseDB *instance)
 {
     nplse__free(instance->buffer);
-    fclose((FILE *)instance->file); // todo wrap
+    nplse__fileClose(&instance->file);
     nplse__free(instance);
 }
 
