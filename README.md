@@ -24,6 +24,13 @@ Donate here:
 - maybe more stuff, such as a standalone version. I'm open for suggestions...
 - **A logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
 
+### Table of Contents
+- [Building](#building)
+  - [Demo](#demo)
+  - [Compile-time testing](#compile-time-tests)
+- [Using](#using)
+  - [Visualization using Javascript](#javascript-visualization)
+- [Similar projects](#similar-projects)
 
 ## Building
 A build process is not required, simply drop *nanopulsedb.h* into your project and use.
