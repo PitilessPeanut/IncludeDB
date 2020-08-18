@@ -57,7 +57,7 @@
 
 struct nplse__bitvec;
 
-typedef unsigned (*pnplse__bitvecAlloc)(struct nplse__bitvec *bitvec, int amount);
+typedef int (*pnplse__bitvecAlloc)(struct nplse__bitvec *bitvec, int amount);
 
 typedef struct nplse__bitvec
 {
@@ -175,6 +175,9 @@ static nanopulseDB *nplse_open(const char *filename);
 // Close. Must be called to ensure all changes are written to disk
 static void nplse_close(nanopulseDB *instance);
 
+// Get error
+static const char *getError();
+
 
 
 
@@ -264,11 +267,12 @@ static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsig
     return h;
 }
 
-static int nplse__bitvecAlloc(nplse__bitvec *bitvec)
+static int nplse__bitvecAlloc(nplse__bitvec *bitvec, int amount)
 {
-    
-    // bitvec->szVec += amount;
-    // alloc 32bit! sizeof(int)
+    bitvec->szVec += amount; // alloc 32bit! sizeof(unsigned)
+    bitvec->bitvec = (unsigned *)nplse__realloc(bitvec->bitvec, bitvec->szVec * sizeof(unsigned));
+    if (bitvec->bitvec)
+        return 0;
     return 1; // error
 }
 
@@ -303,7 +307,8 @@ inline constexpr int nplse__gatherSlots(nanopulseDB *instance, int requiredSlots
         const int amount = (requiredSlots/32) + 1;
         if (bitvec->nplse__bitvecAlloc(bitvec, amount))
         {
-            "sdcdv"
+            COMPTIME char error[] = "Couldn't grow bitvec. Out of mem?";
+            instance->error = error;
             return -1; // failed
         }
         // todo : grow file
@@ -397,7 +402,7 @@ static nanopulseDB *nplse_open(const char *filename)
     COMPTIME unsigned char versionStr[] = { (version>>24)&0xff,
                                             (version>>16)&0xff,
                                             (version>> 8)&0xff,
-                                             version &0xff
+                                             version     &0xff
                                           };
     nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
     if (!newInstance)
@@ -446,7 +451,10 @@ static nanopulseDB *nplse_open(const char *filename)
     //    fseek(pFile, 190, SEEK_SET); // overwrites!
         
         
-        // setup bitvec
+        // setup bitvec:
+        newInstance->occupied.bitvec = (unsigned *)nplse__malloc(sizeof(unsigned) * 1);
+        newInstance->occupied.szVec = 1;
+        newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
         
         
     
@@ -459,6 +467,8 @@ static void nplse_close(nanopulseDB *instance)
 {
     nplse__free(instance->buffer);
     nplse__fileClose(&instance->file);
+    nplse__free(instance->occupied.bitvec);
+    nplse__free(instance->nodeVec);
     nplse__free(instance);
 }
 
@@ -488,7 +498,7 @@ constexpr unsigned nplse__testBitvec()
     nplse__bitvec testBitvec;
     testBitvec.bitvec = bitvecBits;
     testBitvec.szVec  = 1;
-    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->unsigned{ return 1; };
+    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->int{ return 1; };
     testBitvec.nplse__bitvecAlloc = testAlloc;
     for (int i=0; i<64; ++i)
         nplse__bitvecSet(&testBitvec, i);
@@ -517,7 +527,7 @@ constexpr unsigned nplse__testSlots()
     unsigned bitvecBits[3/* *32 */] = {0};
     testDB.occupied.bitvec = bitvecBits;
     testDB.occupied.szVec  = 1;
-    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->unsigned
+    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->int
                      {
                          if ((bitvec->szVec+amount) <= 3)
                          {
