@@ -30,6 +30,7 @@ Donate here:
   - [Compile-time testing](#compile-time-tests)
 - [Using](#using)
   - [Visualization using Javascript](#javascript-visualization)
+- [Contributing](#contributing)
 - [Similar projects](#similar-projects)
 
 ## Building
@@ -37,15 +38,40 @@ A build process is not required, simply drop *nanopulsedb.h* into your project a
 #### Demo
 Building the example program can be done with just ``cc -o demo demo_nanopulsedb.c`` When run, a _"hello.dat"_ file will be created.
 #### Compile-time tests
-If compiled as C++ a number of unit-tests will be executed during compilation. To disable this behaviour ```#define DISABLE_CPP``` before *#including* this file.
+If compiled as C++ a number of unit-tests will be executed during compilation. To disable this behaviour ```#define DISABLE_TESTS``` before *#including* this file.
 
 ## Using
 _**Attention** This code is not yet production-ready! Proceed accordingly!_
 
+Configuration:
+More options, such as setting a different malloc()/free() are available. Take a look inside *nanopulsedb.h*
+```
+// Chunk size is 256 by default. This is the MINIMUM size
+// a key/value pair is going to take up. To set a custom value:
+#define NANOPULSE_CHUNK_SIZE 1024 // Optional
+
+// After that add
+#define NANOPULSE_DB_IMPLEMENTATION // Required!
+// And finally
+#include "nanopulsedb.h"
+
+```
+Usage:
+```
+// Create new or open existing. NULL is returned 
+// in case the file couldn't be opened or created:
+nanopulseDB *mydb = nplse_open("hello.dat");
+
+// Make sure to call close() after done using:
+nplse_close(mydb);
+```
 The database can also be operated entirely during compile time, providing you with a compile-time key/value store.
 
 #### Javascript visualization
 *algo-visualize.js* is provided and can be run on algorithm-visualizer.org to show the mechanism of the underlying algorithm. 
+
+## Contributing
+I hope the code is somewhat readable and not too much of a mess. Either way contributions are very welcome, feel free to msg me or issue a request!
 
 ## Similar projects
 Nanopulse is a tiny database engine with limited features designed for a niche purpose. If you need a more established library we encourage you to check out these:
