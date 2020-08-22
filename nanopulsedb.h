@@ -4,8 +4,8 @@
       #define NANOPULSE_DB_IMPLEMENTATION
       #include "nanopulsedb.h"
  
-  To force compilation as C99 add:
-      #define DISABLE_CPP // This will also disable compile-time unit tests
+  To disable compile-time unit tests:
+      #define DISABLE_TESTS
  
   LICENSE
       See end of file.
@@ -38,13 +38,10 @@
                                (NANOPULSE_VERSION_MINOR<<16) | \
                                (NANOPULSE_VERSION_PATCH<< 8))
 
-#if defined(__cplusplus) && !defined(DISABLE_CPP)
-  #define COMP_AS_CPP
-#endif
-
-#if defined(COMP_AS_CPP)
+#if defined(__cplusplus)
   #define COMPTIME constexpr
   #define CTOR3(x,y,z) constexpr x,y,z
+  #define CTOR4(w,x,y,z) constexpr w,x,y,z
 #else
   #define COMPTIME static const
   #define constexpr
@@ -52,6 +49,10 @@
   enum {false=0,true=1};
   typedef int bool;
   #define CTOR3(x,y,z)
+  #define CTOR4(w,x,y,z)
+  #ifndef DISABLE_TESTS
+    #define DISABLE_TESTS
+  #endif
 #endif
 
 
@@ -70,10 +71,11 @@ typedef struct nplse__bitvec
 
 typedef struct nplse__skipnode
 {
-    CTOR3(nplse__skipnode() : nodeid(0), filepos(0), next(0) {})
+    CTOR4(nplse__skipnode() : nodeid(0), filepos(0), next(0), visits(0) {})
     unsigned nodeid;
     int filepos;
-    int next; // offset
+    int next; // pointer into 'nodeVec'
+    int visits;
 } nplse__skipnode;
 
 
@@ -82,10 +84,11 @@ struct nplse__file;
 bool nplse__fileOpen(struct nplse__file *file, const char *filename);
 bool nplse__fileCreate(struct nplse__file *file, const char *filename);
 bool nplse__fileClose(struct nplse__file *file);
+int  nplse__fileWrite(struct nplse__file *file, const unsigned char *bytes, int len, int filepos);
 
-#define NANOPULSE_USE_C_STD_FILE_OPS
+#define NANOPULSE_USE_STD_FILE_OPS
 
-#if defined(NANOPULSE_USE_C_STD_FILE_OPS)
+#if defined(NANOPULSE_USE_STD_FILE_OPS)
   #include <stdio.h>
   typedef struct nplse__file
   {
@@ -105,6 +108,11 @@ bool nplse__fileClose(struct nplse__file *file);
   {
       return fclose(file->pFile);
   }
+  int  nplse__fileWrite(struct nplse__file *file, const unsigned char *bytes, int len, int filepos)
+  {
+      fseek(file->pFile, filepos, SEEK_SET);
+      return fwrite(bytes, sizeof(unsigned char), len, file->pFile);
+  }
 #endif
 
 #if !defined(NANOPULSE_CHUNK_SIZE)
@@ -120,6 +128,11 @@ struct nanopulseDB;
 typedef int (*pnplse__write)(struct nanopulseDB *instance, int location, int amount);
 typedef void (*pnplse__read)(struct nanopulseDB *instance, int location, int amount);
 
+enum nplse__errorCodes
+{
+    OK, BITVEC_ALLOC, SLOTS_ALLOC, BUFFER_ALLOC
+};
+
 typedef struct nanopulseDB
 {
     // Buffer:
@@ -129,7 +142,7 @@ typedef struct nanopulseDB
     // File:
     union
     {
-        nplse__file *file;
+        nplse__file file;
         unsigned char *mappedArray;
     };
     int chunkSize;
@@ -143,6 +156,7 @@ typedef struct nanopulseDB
     int nKeys;
     //int nAllocatedSlots = 32;
     //int addressNewNode = 0;
+    int totalVisits;
     
     // Cache
     // cachesize // max # of entries in cache = sz/chunksize - - can be less than that
@@ -150,9 +164,12 @@ typedef struct nanopulseDB
     // Hashing:
     unsigned seed;
     
-    // Error:
-    const char *error;
+    // Error code
+    enum nplse__errorCodes ec;
 } nanopulseDB;
+
+// Error:
+static const char *nplse__error;
 
 
 
@@ -308,7 +325,7 @@ inline constexpr int nplse__gatherSlots(nanopulseDB *instance, int requiredSlots
         if (bitvec->nplse__bitvecAlloc(bitvec, amount))
         {
             COMPTIME char error[] = "Couldn't grow bitvec. Out of mem?";
-            instance->error = error;
+            instance->ec = BITVEC_ALLOC;
             return -1; // failed
         }
         // todo : grow file
@@ -375,6 +392,19 @@ inline constexpr nplse__skipnode *nplse__findSkipnode(nanopulseDB *instance, con
     return nullptr;
 }
 
+static int nplse__dbWrite(struct nanopulseDB *instance, int location, int amount)
+{
+    location += 256; // db header size
+    const int res = nplse__fileWrite(&instance->file, instance->buffer, amount, location);
+    return !(res==amount);
+}
+
+//static void nplse__dbRead(struct nanopulseDB *instance, int location, int amount)
+//{
+//    location += 256;
+//    //nplse__fileRead(&instance->file, );
+//}
+
 COMPTIME int nplse__header_keyhashLen        = 4;
 COMPTIME int nplse__header_keylenLen         = 4;
 COMPTIME int nplse__header_vallenLen         = 4;
@@ -398,78 +428,122 @@ static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, 
 
 static nanopulseDB *nplse_open(const char *filename)
 {
-    COMPTIME unsigned version = NANOPULSE_VERSION_NUM;
-    COMPTIME unsigned char versionStr[] = { (version>>24)&0xff,
-                                            (version>>16)&0xff,
-                                            (version>> 8)&0xff,
-                                             version     &0xff
-                                          };
+    COMPTIME unsigned char magic[] = "npdb";
+    COMPTIME unsigned v = NANOPULSE_VERSION_NUM;
+    COMPTIME unsigned char versionStr[] = {(v>>24)&0xff, (v>>16)&0xff, (v>>8)&0xff, v&0xff};
     nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
     if (!newInstance)
+    {
+        COMPTIME char error[] = "Couldn't create db. Out of mem?";
         return nullptr;
+    }
     
     if (!nplse__fileOpen(&newInstance->file, filename))
     {
         if (!nplse__fileCreate(&newInstance->file, filename))
         {
-            COMPTIME char error[] = "Couldn't create or open file";
-            newInstance->error = error;
-            return newInstance;
+            COMPTIME char error[] = "Couldn't open db. File corrupted?";
+            // Cannot call close() on an instance that hasn't been created correctly.
+            // Return NULL instead:
+            nplse__free(newInstance);
+            return nullptr;
         }
-        // write signature/magic
-        fwrite("npdb", sizeof(char), 4, pFile);
+        // write signature
+        nplse__fileWrite(&newInstance->file, magic, 4, 0);
         // write version
-        fwrite(versionStr, sizeof(unsigned char), 4, pFile);
-         
-         
-        // todo create sede
+        nplse__fileWrite(&newInstance->file, versionStr, 4, 4);
+        // write chunksize
+        COMPTIME unsigned cs = NANOPULSE_CHUNK_SIZE;
+        COMPTIME unsigned char chunksize[] = {(cs>>24)&0xff, (cs>>16)&0xff, (cs>>8)&0xff, cs&0xff};
+        nplse__fileWrite(&newInstance->file, chunksize, 4, 8);
+        newInstance->chunkSize = cs;
+        // file size
+        // records??
+        // write "visits"
+        COMPTIME unsigned char visits[] = {0,0,0,0};
+        nplse__fileWrite(&newInstance->file, visits, 4, 12);
+        newInstance->totalVisits = 0;
+        // create seed
+        const unsigned sd = 6969; // todo
+        const unsigned char seedStr[] = {(sd>>24)&0xff, (sd>>16)&0xff, (sd>>8)&0xff, sd&0xff};
+        nplse__fileWrite(&newInstance->file, seedStr, 4, 16);
+        newInstance->seed = sd;
     }
     else
     {
         // read npdb
-        // read version vs minimum required '>'
+        unsigned char buf[20];
+        nplse__fileRead(&newInstance->file, buf, 20, 0);
+        bool ok = buf[0]=='n' && buf[1]=='p' && buf[2]=='d' && buf[3]=='b';
+        if (!ok)
+        {
+            COMPTIME char error[] = "Couldn't open db. File not recognized";
+            nplse__free(newInstance);
+            return nullptr;
+        }
+        // read version vs minimum required
+        ok =       buf[4] == NANOPULSE_VERSION_MAJOR;
+        ok = ok && buf[5] <= NANOPULSE_VERSION_MINOR;
+        ok = ok && buf[6] <= NANOPULSE_VERSION_PATCH;
+        (void)     buf[7];
+        if (!ok)
+        {
+            COMPTIME char error[] = "Couldn't open db. Incompatible version";
+            nplse__free(newInstance);
+            return nullptr;
+        }
+        // read chunksise
+        newInstance->chunkSize = (buf[8]<<24) | (buf[9]<<16) | (buf[10]<<8) | buf[11];
+        
+        
+        
+        
         // read randseed
-        // read chunksz
+        newInstance->seed = (buf[16]<<24) | (buf[17]<<16) | (buf[18]<<8) | buf[19];
+        
+        
+        
         // chunkSize =
-         
+        // read filesz
+        // read vists
+        
         // if # of total acces > some 'limit', /2!!
     }
     // Create buffer:
-    newInstance->buffer = (unsigned char *)nplse__malloc(sizeof(unsigned char) * 32);
+    newInstance->buffer = (unsigned char *)nplse__malloc(256);
     newInstance->szBuf = 1;
-
+    // Write fn:
+    newInstance->nplse__write = nplse__dbWrite;
+    // Read fn:
+    newInstance->nplse__read = nullptr;
+    // setup bitvec:
+    newInstance->occupied.bitvec = (unsigned *)nplse__malloc(sizeof(unsigned) * 1);
+    newInstance->occupied.szVec = 1;
+    newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
+    // setup node list:
+    newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 4);
     
-        //fseek(pFile, 0, SEEK_END);
-        //newInstance->currentFilesize = ftell(pFile);
-    //    fseek(pFile, 0, SEEK_SET);
-    //
-    //    char txt[120];
-    //    fread(txt, 1, 20, pFile);
-    //
-    //    printf("txt: %s \n", txt);
-    //
-    //    fseek(pFile, 190, SEEK_SET); // overwrites!
-        
-        
-        // setup bitvec:
-        newInstance->occupied.bitvec = (unsigned *)nplse__malloc(sizeof(unsigned) * 1);
-        newInstance->occupied.szVec = 1;
-        newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
-        
-        
-    
-    
+    // Build index:
+    int offset = 256;
+    // while (offset < filesize)
+    nplse__fileRead(&newInstance->file, buf, 20, offset);
     
     return newInstance;
 }
 
 static void nplse_close(nanopulseDB *instance)
 {
+    // todo write cache
     nplse__free(instance->buffer);
+    instance->buffer = nullptr;
     nplse__fileClose(&instance->file);
     nplse__free(instance->occupied.bitvec);
+    instance->occupied.bitvec = nullptr;
+    // todo: write all visits from nodes to file!
     nplse__free(instance->nodeVec);
-    nplse__free(instance);
+    instance->nodeVec = nullptr;
+    //nplse__free(instance);
+    //instance = nullptr;
 }
 
 
@@ -483,7 +557,7 @@ static void nplse_close(nanopulseDB *instance)
 
 
 
-#if defined(COMP_AS_CPP)
+#if !defined(DISABLE_TESTS)
 
 constexpr unsigned nplse__testBoyerMoore()
 {
@@ -497,9 +571,6 @@ constexpr unsigned nplse__testBitvec()
     unsigned bitvecBits[3] = {0};
     nplse__bitvec testBitvec;
     testBitvec.bitvec = bitvecBits;
-    testBitvec.szVec  = 1;
-    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->int{ return 1; };
-    testBitvec.nplse__bitvecAlloc = testAlloc;
     for (int i=0; i<64; ++i)
         nplse__bitvecSet(&testBitvec, i);
     const bool TEST_BIT_63 =  nplse__bitvecCheck(&testBitvec, 63)
@@ -513,8 +584,8 @@ constexpr unsigned nplse__testBitvec()
 }
 static constexpr unsigned resBitvec = nplse__testBitvec();
 
-static_assert(resBitvec&    1, "bit 63 not correct");
-static_assert(resBitvec&    2, "bit 64 not correct");
+static_assert(resBitvec&1, "bit 63 not correct");
+static_assert(resBitvec&2, "bit 64 not correct");
 
 
 constexpr unsigned nplse__testSlots()
@@ -661,7 +732,7 @@ constexpr unsigned nplse__testDB()
 
 static_assert(true);
 
-#endif // defined(COMP_AS_CPP)
+#endif // !defined(DISABLE_TESTS)
 
 #endif // NANOPULSE_DB_IMPLEMENTATION
 

@@ -3,7 +3,8 @@
 
 int main(void)
 {
-    nanopulseDB *db = nplse_open("hello.txt");
+    // Create new file or open existing:
+    nanopulseDB *db = nplse_open("hello.dat");
     if (!db)
         printf("error opening db\n");
     
