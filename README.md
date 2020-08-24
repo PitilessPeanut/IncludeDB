@@ -11,7 +11,7 @@ Donate here:
 <img src="images/btc.png" width="150px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="150px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh"><img src="images/bsv.png" width="150px" alt="15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP"><img src="images/eth.png" width="150px" alt="0x32a42d02eB021914FE8928d4A60332970F96f2cd">
 
 **Attention!! This project is *early* alpha and many things have yet to be implemented:**
-- *mmap()*ed file
+- memory mapping
 - Support for concurrent read
 - Support for thread-safe write
 - Tests for Windows support
@@ -21,6 +21,7 @@ Donate here:
 - large file stress tests
 - file lock
 - integrity check
+- recover keys
 - maybe more stuff, such as a standalone version. I'm open for suggestions...
 - **A logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
 

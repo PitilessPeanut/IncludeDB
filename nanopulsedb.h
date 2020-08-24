@@ -7,6 +7,9 @@
   To disable compile-time unit tests:
       #define DISABLE_TESTS
  
+ AUTHOR
+     Professor Peanut
+ 
   LICENSE
       See end of file.
  
@@ -85,6 +88,7 @@ bool nplse__fileOpen(struct nplse__file *file, const char *filename);
 bool nplse__fileCreate(struct nplse__file *file, const char *filename);
 bool nplse__fileClose(struct nplse__file *file);
 int  nplse__fileWrite(struct nplse__file *file, const unsigned char *bytes, int len, int filepos);
+bool nplse__fileGrow(struct nplse__file *file, int len);
 
 #define NANOPULSE_USE_STD_FILE_OPS
 
@@ -112,6 +116,12 @@ int  nplse__fileWrite(struct nplse__file *file, const unsigned char *bytes, int 
   {
       fseek(file->pFile, filepos, SEEK_SET);
       return fwrite(bytes, sizeof(unsigned char), len, file->pFile);
+  }
+  bool nplse__fileGrow(nplse__file *file, int len)
+  {
+      (void)file;
+      (void)bytes;
+      return true; // ¯\_(ツ)_/¯
   }
 #endif
 
@@ -183,8 +193,18 @@ static const char *nplse__error;
 // Add a new record
 static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen);
 
-// Get a pointer to an existing record. Calling this is going to invalidate previously retuned pointers
+// Get a pointer to an existing record. *vallen contains the size of the returned value in bytes and can be NULL if
+// you are not interested in it. Calling this is going to invalidate previously retuned pointers
 static constexpr unsigned char *nplse_get(nanopulseDB *instance, unsigned char *key, int keylen, int *vallen);
+
+// Delete record at key (TODO)
+//static constexpr void nplse_delete(nanopulseDB *instance, unsigned char *key, int keylen);
+
+// Upon opening a database a cursor is pointing to the first record. Use this to move the cursor to the next record
+static constexpr void nplse_next(nanopulseDB *instance);
+
+// Get the key at cursor position. Optionally the size of the key can be stored in *keylen. Pass NULL if this is not needed
+static constexpr unsigned char *nplse_curGet(nanopulseDB *instance, int *keylen);
 
 // Open existing, or create new
 static nanopulseDB *nplse_open(const char *filename);
@@ -438,6 +458,7 @@ static nanopulseDB *nplse_open(const char *filename)
         return nullptr;
     }
     
+    int nKeys = 0;
     if (!nplse__fileOpen(&newInstance->file, filename))
     {
         if (!nplse__fileCreate(&newInstance->file, filename))
@@ -457,22 +478,20 @@ static nanopulseDB *nplse_open(const char *filename)
         COMPTIME unsigned char chunksize[] = {(cs>>24)&0xff, (cs>>16)&0xff, (cs>>8)&0xff, cs&0xff};
         nplse__fileWrite(&newInstance->file, chunksize, 4, 8);
         newInstance->chunkSize = cs;
-        // file size
-        // records??
-        // write "visits"
-        COMPTIME unsigned char visits[] = {0,0,0,0};
-        nplse__fileWrite(&newInstance->file, visits, 4, 12);
+        // write keys & "visits"
+        COMPTIME unsigned char keysNvisits[] = {0,0,0,0,0,0,0,0};
+        nplse__fileWrite(&newInstance->file, keysNvisits, 8, 12);
         newInstance->totalVisits = 0;
         // create seed
         const unsigned sd = 6969; // todo
         const unsigned char seedStr[] = {(sd>>24)&0xff, (sd>>16)&0xff, (sd>>8)&0xff, sd&0xff};
-        nplse__fileWrite(&newInstance->file, seedStr, 4, 16);
+        nplse__fileWrite(&newInstance->file, seedStr, 4, 20);
         newInstance->seed = sd;
     }
     else
     {
         // read npdb
-        unsigned char buf[20];
+        unsigned char buf[24];
         nplse__fileRead(&newInstance->file, buf, 20, 0);
         bool ok = buf[0]=='n' && buf[1]=='p' && buf[2]=='d' && buf[3]=='b';
         if (!ok)
@@ -494,15 +513,15 @@ static nanopulseDB *nplse_open(const char *filename)
         }
         // read chunksise
         newInstance->chunkSize = (buf[8]<<24) | (buf[9]<<16) | (buf[10]<<8) | buf[11];
-        
-        
-        
-        
+        // read keys
+        nKeys = (buf[12]<<24) | (buf[13]<<16) | (buf[14]<<8) | buf[15];
+        // read visits
+          // todo: not yet
         // read randseed
-        newInstance->seed = (buf[16]<<24) | (buf[17]<<16) | (buf[18]<<8) | buf[19];
-        
-        
-        
+        newInstance->seed = (buf[20]<<24) | (buf[21]<<16) | (buf[22]<<8) | buf[23];
+        printf("nkeys %d \n", newInstance->seed);
+            
+            
         // chunkSize =
         // read filesz
         // read vists
@@ -524,26 +543,52 @@ static nanopulseDB *nplse_open(const char *filename)
     newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 4);
     
     // Build index:
-    int offset = 256;
-    // while (offset < filesize)
-    nplse__fileRead(&newInstance->file, buf, 20, offset);
-    
+    COMPTIME int dbHeaderSize = 256;
+    int offset = dbHeaderSize;
+    unsigned char buf[20];
+    for (int i=0; i<nKeys; ++i)
+    {
+        nplse__fileRead(&newInstance->file, buf, 16, offset);
+        const unsigned keyhash = (buf[ 0]<<24) | (buf[ 1]<<16) | (buf[ 2]<<8) | buf[ 3];
+        nplse__insertSkipnode(newInstance, keyhash, offset);
+        // get position for the next record:
+        const unsigned keylen = (buf[ 4]<<24) | (buf[ 5]<<16) | (buf[ 6]<<8) | buf[ 7];
+        const unsigned vallen = (buf[ 8]<<24) | (buf[ 9]<<16) | (buf[10]<<8) | buf[11];
+        const int requiredSizeInByte = nplse__header_keyhashLen
+                                     + nplse__header_keylenLen
+                                     + nplse__header_vallenLen
+                                     + nplse__header_recordPriorityLen
+                                     + keylen
+                                     + vallen
+                                     + 1;
+        offset += (requiredSizeInByte / newInstance->chunkSize) + 1;
+    }
+
     return newInstance;
 }
 
 static void nplse_close(nanopulseDB *instance)
 {
-    // todo write cache
+    if (instance == nullptr)
+        return;
+        
+    unsigned char buf[4];
+    const int nk = instance->nKeys;
+    buf[0]=nk>>24; buf[1]=(nk>>16)&0xff; buf[2]=(nk>>8)&0xff; buf[3]=nk&0xff;
+    nplse__fileWrite(&instance->file, buf, 4, 12);
+    
+    const unsigned sd = instance->seed;
+    buf[0]=sd>>24; buf[1]=(sd>>16)&0xff; buf[2]=(sd>>8)&0xff; buf[3]=sd&0xff;
+    nplse__fileWrite(&instance->file, buf, 4, 20);
+    
+    
+    // todo save cache
     nplse__free(instance->buffer);
-    instance->buffer = nullptr;
     nplse__fileClose(&instance->file);
     nplse__free(instance->occupied.bitvec);
-    instance->occupied.bitvec = nullptr;
     // todo: write all visits from nodes to file!
     nplse__free(instance->nodeVec);
-    instance->nodeVec = nullptr;
-    //nplse__free(instance);
-    //instance = nullptr;
+    nplse__free(instance);
 }
 
 
@@ -559,11 +604,11 @@ static void nplse_close(nanopulseDB *instance)
 
 #if !defined(DISABLE_TESTS)
 
-constexpr unsigned nplse__testBoyerMoore()
+constexpr unsigned nplse__testCache()
 {
     return 0;
 }
-static constexpr unsigned resBoyerMoore = nplse__testBoyerMoore();
+static constexpr unsigned resCache = nplse__testCache();
 
 
 constexpr unsigned nplse__testBitvec()
