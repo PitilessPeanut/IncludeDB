@@ -7,7 +7,7 @@
   To disable compile-time unit tests:
       #define DISABLE_TESTS
  
- AUTHOR
+  AUTHOR
      Professor Peanut
  
   LICENSE
