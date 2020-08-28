@@ -117,11 +117,18 @@ bool nplse__fileGrow(struct nplse__file *file, int len);
       fseek(file->pFile, filepos, SEEK_SET);
       return fwrite(bytes, sizeof(unsigned char), len, file->pFile);
   }
+  void nplse__fileRead(nplse__file *file, unsigned char *bytes, int len, int filepos)
+  {
+      fseek(file->pFile, filepos, SEEK_SET);
+      const int r = fread(bytes, sizeof(unsigned char), len, file->pFile);
+      (void)r;
+  }
   bool nplse__fileGrow(nplse__file *file, int len)
   {
+      // ¯\_(ツ)_/¯
       (void)file;
-      (void)bytes;
-      return true; // ¯\_(ツ)_/¯
+      (void)len;
+      return true;
   }
 #endif
 
@@ -308,9 +315,7 @@ static int nplse__bitvecAlloc(nplse__bitvec *bitvec, int amount)
 {
     bitvec->szVec += amount; // alloc 32bit! sizeof(unsigned)
     bitvec->bitvec = (unsigned *)nplse__realloc(bitvec->bitvec, bitvec->szVec * sizeof(unsigned));
-    if (bitvec->bitvec)
-        return 0;
-    return 1; // error
+    return !(bitvec->bitvec); // 1 is error
 }
 
 inline constexpr unsigned nplse__bitvecCheck(const nplse__bitvec *bitvec, int pos)
@@ -419,11 +424,25 @@ static int nplse__dbWrite(struct nanopulseDB *instance, int location, int amount
     return !(res==amount);
 }
 
-//static void nplse__dbRead(struct nanopulseDB *instance, int location, int amount)
-//{
-//    location += 256;
-//    //nplse__fileRead(&instance->file, );
-//}
+static int nplse__dbRead(struct nanopulseDB *instance, int location, int amount)
+{
+    location += 256;
+    // make sure the buffer is big enough:
+    const int sz = instance->szBuf;
+    if (sz < amount)
+    {
+        instance->szBuf = ((amount/sz) * sz) + sz;
+        instance->buffer = (unsigned char *)nplse__realloc(instance->buffer, instance->szBuf);
+        if (!instance->buffer)
+        {
+            COMPTIME char error[] = "nplse__dbRead(): failed to realloc buffer";
+            instance->ec = BUFFER_ALLOC;
+            return 1;
+        }
+    }
+    nplse__fileRead(&instance->file, instance->buffer, location, amount);
+    return 0;
+}
 
 COMPTIME int nplse__header_keyhashLen        = 4;
 COMPTIME int nplse__header_keylenLen         = 4;
@@ -446,6 +465,23 @@ static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, 
     return -1;
 }
 
+static constexpr unsigned char *nplse_get(nanopulseDB *instance, unsigned char *key, int keylen, int *vallen)
+{
+}
+
+//static constexpr void nplse_delete(nanopulseDB *instance, unsigned char *key, int keylen)
+//{
+//}
+
+static constexpr unsigned char *nplse_curGet(nanopulseDB *instance, int *keylen)
+{
+}
+
+static constexpr void nplse_next(nanopulseDB *instance)
+{
+}
+
+
 static nanopulseDB *nplse_open(const char *filename)
 {
     COMPTIME unsigned char magic[] = "npdb";
@@ -454,10 +490,10 @@ static nanopulseDB *nplse_open(const char *filename)
     nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
     if (!newInstance)
     {
-        COMPTIME char error[] = "Couldn't create db. Out of mem?";
+        COMPTIME char error[] = "Couldn't alloc db. Out of mem?";
         return nullptr;
     }
-    
+     
     int nKeys = 0;
     if (!nplse__fileOpen(&newInstance->file, filename))
     {
@@ -492,7 +528,7 @@ static nanopulseDB *nplse_open(const char *filename)
     {
         // read npdb
         unsigned char buf[24];
-        nplse__fileRead(&newInstance->file, buf, 20, 0);
+        nplse__fileRead(&newInstance->file, buf, 24, 0);
         bool ok = buf[0]=='n' && buf[1]=='p' && buf[2]=='d' && buf[3]=='b';
         if (!ok)
         {
@@ -513,15 +549,15 @@ static nanopulseDB *nplse_open(const char *filename)
         }
         // read chunksise
         newInstance->chunkSize = (buf[8]<<24) | (buf[9]<<16) | (buf[10]<<8) | buf[11];
-        // read keys
+        // read # of keys
         nKeys = (buf[12]<<24) | (buf[13]<<16) | (buf[14]<<8) | buf[15];
         // read visits
           // todo: not yet
         // read randseed
         newInstance->seed = (buf[20]<<24) | (buf[21]<<16) | (buf[22]<<8) | buf[23];
-        printf("nkeys %d \n", newInstance->seed);
-            
-            
+        printf("seed %d  %d %d %d %d \n", newInstance->seed, buf[20],buf[21],buf[22],buf[23]);
+        
+        
         // chunkSize =
         // read filesz
         // read vists
@@ -534,21 +570,26 @@ static nanopulseDB *nplse_open(const char *filename)
     // Write fn:
     newInstance->nplse__write = nplse__dbWrite;
     // Read fn:
-    newInstance->nplse__read = nullptr;
+    newInstance->nplse__read = nplse__dbRead;
     // setup bitvec:
     newInstance->occupied.bitvec = (unsigned *)nplse__malloc(sizeof(unsigned) * 1);
     newInstance->occupied.szVec = 1;
     newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
     // setup node list:
     newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 4);
+    // put cursor to the start
+    newInstance->cursor = 0;
+    
+    
+    printf("nlky %d \n", nKeys);
     
     // Build index:
-    COMPTIME int dbHeaderSize = 256;
-    int offset = dbHeaderSize;
+    COMPTIME int dbHeaderSize = 128;
+    int offset = 0;
     unsigned char buf[20];
     for (int i=0; i<nKeys; ++i)
     {
-        nplse__fileRead(&newInstance->file, buf, 16, offset);
+        nplse__fileRead(&newInstance->file, buf, 16, offset+dbHeaderSize);
         const unsigned keyhash = (buf[ 0]<<24) | (buf[ 1]<<16) | (buf[ 2]<<8) | buf[ 3];
         nplse__insertSkipnode(newInstance, keyhash, offset);
         // get position for the next record:
@@ -563,7 +604,7 @@ static nanopulseDB *nplse_open(const char *filename)
                                      + 1;
         offset += (requiredSizeInByte / newInstance->chunkSize) + 1;
     }
-
+    
     return newInstance;
 }
 

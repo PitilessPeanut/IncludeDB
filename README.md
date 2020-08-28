@@ -22,8 +22,9 @@ Donate here:
 - file lock
 - integrity check
 - recover keys
+- benches
 - maybe more stuff, such as a standalone version. I'm open for suggestions...
-- **A logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
+- **A better logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
 
 ### Table of Contents
 - [Building](#building)
