@@ -9,6 +9,9 @@ If you like this project or find it useful in any way, please please PLEASE cons
 Donate here:
 
 <img src="images/btc.png" width="150px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="150px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh"><img src="images/bsv.png" width="150px" alt="15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP"><img src="images/eth.png" width="150px" alt="0x32a42d02eB021914FE8928d4A60332970F96f2cd">
+DCR:  DsWY2Z1NThKqumM6x9oiyM3f2RkW28ruoyA
+LTC:  LWZ5HCcpModc1XcFpjEzz25J58eeQ8fJ7F
+DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
 
 **Attention!! This project is *early* alpha and many things have yet to be implemented:**
 - memory mapping

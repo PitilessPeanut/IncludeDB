@@ -137,13 +137,15 @@ bool nplse__fileGrow(struct nplse__file *file, int len);
 #endif
 
 #if !defined(NANOPULSE_CACHE_SIZE)
-  #define NANOPULSE_CACHE_SIZE (7*NANOPULSE_CHUNK_SIZE)
+  #define NANOPULSE_CACHE_SIZE 1024
 #endif
+
+#define NANOPULSE_MAX_CACHE_ITEMS NANOPULSE_CACHE_SIZE/NANOPULSE_CHUNK_SIZE
 
 struct nanopulseDB;
 
 typedef int (*pnplse__write)(struct nanopulseDB *instance, int location, int amount);
-typedef void (*pnplse__read)(struct nanopulseDB *instance, int location, int amount);
+typedef int (*pnplse__read)(struct nanopulseDB *instance, int location, int amount);
 
 enum nplse__errorCodes
 {
@@ -174,8 +176,10 @@ typedef struct nanopulseDB
     //int nAllocatedSlots = 32;
     //int addressNewNode = 0;
     int totalVisits;
+    int cursor;
     
     // Cache
+    int cacheIds[NANOPULSE_MAX_CACHE_ITEMS];
     // cachesize // max # of entries in cache = sz/chunksize - - can be less than that
     
     // Hashing:
@@ -419,14 +423,14 @@ inline constexpr nplse__skipnode *nplse__findSkipnode(nanopulseDB *instance, con
 
 static int nplse__dbWrite(struct nanopulseDB *instance, int location, int amount)
 {
-    location += 256; // db header size
+    location += 128; // db header size
     const int res = nplse__fileWrite(&instance->file, instance->buffer, amount, location);
-    return !(res==amount);
+    return res != amount;
 }
 
 static int nplse__dbRead(struct nanopulseDB *instance, int location, int amount)
 {
-    location += 256;
+    location += 128;
     // make sure the buffer is big enough:
     const int sz = instance->szBuf;
     if (sz < amount)
@@ -440,7 +444,7 @@ static int nplse__dbRead(struct nanopulseDB *instance, int location, int amount)
             return 1;
         }
     }
-    nplse__fileRead(&instance->file, instance->buffer, location, amount);
+    nplse__fileRead(&instance->file, instance->buffer, amount, location);
     return 0;
 }
 
@@ -473,14 +477,30 @@ static constexpr unsigned char *nplse_get(nanopulseDB *instance, unsigned char *
 //{
 //}
 
-static constexpr unsigned char *nplse_curGet(nanopulseDB *instance, int *keylen)
-{
-}
-
 static constexpr void nplse_next(nanopulseDB *instance)
 {
+    instance->cursor += 1;
 }
 
+static constexpr unsigned char *nplse_curGet(nanopulseDB *instance, int *keylen)
+{
+    *keylen = 0;
+    if (instance->cursor == instance->nKeys)
+        return nullptr;
+    COMPTIME int headerSize = nplse__header_keyhashLen
+                            + nplse__header_keylenLen
+                            + nplse__header_vallenLen
+                            + nplse__header_recordPriorityLen;
+    const int filepos = instance->nodeVec[instance->cursor].filepos;
+    if (instance->nplse__read(instance, filepos, headerSize) != 0)
+        return nullptr;
+    const unsigned char *data = instance->buffer;
+    const int kl = (data[4]<<24) | (data[5]<<16) | (data[6]<<8) | data[7];
+    if (instance->nplse__read(instance, filepos+headerSize, kl) != 0)
+        return nullptr;
+    *keylen = kl;
+    return instance->buffer;
+}
 
 static nanopulseDB *nplse_open(const char *filename)
 {
