@@ -322,8 +322,11 @@ static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsig
 static int nplse__bitvecAlloc(nplse__bitvec *bitvec, int amount)
 {
     bitvec->szVec += amount; // alloc 32bit! sizeof(unsigned)
-    bitvec->bitvec = (unsigned *)nplse__realloc(bitvec->bitvec, bitvec->szVec * sizeof(unsigned));
-    return !(bitvec->bitvec); // 1 is error
+    unsigned *tmp = (unsigned *)nplse__realloc(bitvec->bitvec, bitvec->szVec * sizeof(unsigned));
+    if (!tmp)
+        return 1; // 1 is error
+    bitvec->bitvec = tmp;
+    return 0;
 }
 
 inline constexpr unsigned nplse__bitvecCheck(const nplse__bitvec *bitvec, int pos)
@@ -425,7 +428,25 @@ inline constexpr nplse__skipnode *nplse__findSkipnode(nanopulseDB *instance, con
     return nullptr;
 }
 
-static int nplse__dbWrite(struct nanopulseDB *instance, int location, int amount)
+static constexpr int nplse__dbBufferResize(nanopulseDB *instance, int newsize)
+{
+    const int sz = instance->szBuf;
+    if (sz < newsize)
+    {
+        instance->szBuf = ((newsize/sz) * sz) + sz;
+        unsigned char *tmp = (unsigned char *)nplse__realloc(instance->buffer, instance->szBuf);
+        if (!tmp)
+        {
+            COMPTIME char error[] = "nplse__dbRead(): failed to realloc buffer";
+            instance->ec = BUFFER_ALLOC;
+            return 1;
+        }
+        instance->buffer = tmp;
+    }
+    return 0; // Ok
+}
+
+static int nplse__dbWrite(nanopulseDB *instance, int location, int amount)
 {
     location += 128; // db header size
     const int res = nplse__fileWrite(&instance->file, instance->buffer, amount, location);
@@ -442,23 +463,6 @@ static int nplse__dbRead(nanopulseDB *instance, int location, int amount)
     
     nplse__fileRead(&instance->file, instance->buffer, amount, location);
     return 0;
-}
-
-static int nplse__dbBufferResize(nanopulseDB *instance, int newsize)
-{
-    const int sz = instance->szBuf;
-    if (sz < newsize)
-    {
-        instance->szBuf = ((newsize/sz) * sz) + sz;
-        instance->buffer = (unsigned char *)nplse__realloc(instance->buffer, instance->szBuf);
-        if (!instance->buffer)
-        {
-            COMPTIME char error[] = "nplse__dbRead(): failed to realloc buffer";
-            instance->ec = BUFFER_ALLOC;
-            return 1;
-        }
-    }
-    return 0; // Ok
 }
 
 COMPTIME int nplse__header_keyhashLen        = 4;
@@ -623,7 +627,7 @@ static nanopulseDB *nplse_open(const char *filename)
     for (int i=0; i<nKeys; ++i)
     {
         nplse__fileRead(&newInstance->file, buf, 16, offset+dbHeaderSize);
-        const unsigned keyhash = (buf[ 0]<<24) | (buf[ 1]<<16) | (buf[ 2]<<8) | buf[ 3];
+        const unsigned keyhash = (buf[0]<<24) | (buf[1]<<16) | (buf[2]<<8) | buf[3];
         nplse__insertSkipnode(newInstance, keyhash, offset);
         // get position for the next record:
         const unsigned keylen = (buf[ 4]<<24) | (buf[ 5]<<16) | (buf[ 6]<<8) | buf[ 7];
@@ -635,7 +639,10 @@ static nanopulseDB *nplse_open(const char *filename)
                                      + keylen
                                      + vallen
                                      + 1;
-        offset += (requiredSizeInByte / newInstance->chunkSize) + 1;
+        const int requiredSlots = (requiredSizeInByte/newInstance->chunkSize) + 1;
+        nplse__markSlots(&newInstance->occupied, slotLocation, requiredSlots);
+        slotLocation += requiredSlots;
+        offset += newInstance->chunkSize * requiredSlots;
     }
     
     return newInstance;
@@ -743,7 +750,7 @@ constexpr unsigned nplse__testSlots()
     // test large allocation:
     location = nplse__gatherSlots(&testDB, 24+39);
     nplse__markSlots(&testDB.occupied, location, 24+39);
-    const bool TEST_LOCATION_EIGHT = location == 10;
+    const bool TEST_LOCATION_EIGHT = location == 10; 
     location = nplse__gatherSlots(&testDB, 22);
     nplse__markSlots(&testDB.occupied, location, 22);
     const bool TEST_LOCATION_DEEP = location == 10+24+39;
