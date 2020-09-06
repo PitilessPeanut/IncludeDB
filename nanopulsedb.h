@@ -149,7 +149,12 @@ typedef int (*pnplse__read)(struct nanopulseDB *instance, int location, int amou
 
 enum nplse__errorCodes
 {
-    OK, BITVEC_ALLOC, SLOTS_ALLOC, BUFFER_ALLOC
+    NPLSE__OK,
+    NPLSE__BITVEC_ALLOC,
+    NPLSE__SLOTS_ALLOC,
+    NPLSE__BUFFER_ALLOC,
+    NPLSE__ALREADY_KEY,
+    NPLSE__KEY_NOT_FOUND
 };
 
 typedef struct nanopulseDB
@@ -188,6 +193,8 @@ typedef struct nanopulseDB
     
     // Hashing:
     unsigned seed;
+    unsigned bloommap;
+    int bloomcounters[sizeof(unsigned) * 8];
     
     // Error code
     enum nplse__errorCodes ec;
@@ -228,7 +235,7 @@ static nanopulseDB *nplse_open(const char *filename);
 static void nplse_close(nanopulseDB *instance);
 
 // Get error
-static const char *getError();
+static const char *nplse_getError();
 
 
 
@@ -245,6 +252,23 @@ static const char *getError();
   #define nplse__realloc(p,newsz)    realloc(p,newsz)
   #define nplse__free(p)             free(p)
 #endif
+
+inline constexpr void nplse__bloomPut(nanopulseDB *instance)
+{
+    (void)instance;
+}
+
+inline constexpr void nplse__bloomRemove(nanopulseDB *instance)
+{
+    (void)instance;
+}
+
+inline constexpr bool nplse__bloomMaybeHave(const nanopulseDB *instance, const unsigned hash)
+{
+    (void)instance;
+    (void)hash;
+    return true;
+}
 
 static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsigned seed)
 {
@@ -361,7 +385,7 @@ inline constexpr int nplse__gatherSlots(nanopulseDB *instance, int requiredSlots
         if (bitvec->nplse__bitvecAlloc(bitvec, amount))
         {
             COMPTIME char error[] = "Couldn't grow bitvec. Out of mem?";
-            instance->ec = BITVEC_ALLOC;
+            instance->ec = NPLSE__BITVEC_ALLOC;
             return -1; // failed
         }
         // todo : grow file 32*chunksz
@@ -438,7 +462,7 @@ static constexpr int nplse__dbBufferResize(nanopulseDB *instance, int newsize)
         if (!tmp)
         {
             COMPTIME char error[] = "nplse__dbRead(): failed to realloc buffer";
-            instance->ec = BUFFER_ALLOC;
+            instance->ec = NPLSE__BUFFER_ALLOC;
             return 1;
         }
         instance->buffer = tmp;
@@ -456,10 +480,10 @@ static int nplse__dbWrite(nanopulseDB *instance, int location, int amount)
 static int nplse__dbRead(nanopulseDB *instance, int location, int amount)
 {
     location += 128;
+    
     // make sure the buffer is big enough:
-    // if (
-    nplse__dbBufferResize(instance, amount); // todo ptr!!
-    // )
+    if (nplse__dbBufferResize(instance, amount) == 1)
+        return 1; // Error
     
     nplse__fileRead(&instance->file, instance->buffer, amount, location);
     return 0;
@@ -616,6 +640,12 @@ static nanopulseDB *nplse_open(const char *filename)
     newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 4);
     // put cursor to the start
     newInstance->cursor = 0;
+    // init bloomfilter
+    newInstance->bloommap = 0;
+    for (int i=0; i<sizeof(newInstance->bloomcounters); ++i)
+        newInstance->bloomcounters[i] = 0;
+    // reset error
+    newInstance->ec = NPLSE__OK;
     
     
     printf("nlky %d \n", nKeys);
@@ -991,7 +1021,10 @@ constexpr unsigned nplse__testDB()
     nplse_next(&testDB);
     curKey = nplse_curGet(&testDB, &keylen);
     const bool TEST_CURSOR_END = (keylen == 0) && (curKey == nullptr);
-
+    // double put
+    const bool TEST_DOUBLE_PUT_SHOULD_FAIL =  nplse_put(&testDB, keyB, 5, valB, 5) == 1
+                                           && testDB.ec == NPLSE__ALREADY_KEY;
+    
     
     return  TEST_PUT_SUCCESS_A
          | (TEST_SHOULD_BE_W << 1)
@@ -1013,6 +1046,7 @@ constexpr unsigned nplse__testDB()
          | (TEST_KEY_AT_CURSOR << 17)
          | (TEST_KEY_AFTER_CALLING_NEXT << 18)
          | (TEST_LAST_KEY_AFTER_CALLING_NEXT << 19)
+         | (TEST_DOUBLE_PUT_SHOULD_FAIL << 20)
          ;
 }
 static constexpr unsigned resTest = nplse__testDB();
@@ -1037,6 +1071,7 @@ static_assert(resTest&(1<<16), "nplse_get() did not return a large value correct
 static_assert(resTest&(1<<17), "the key at the cursor position should be the first key");
 static_assert(resTest&(1<<18), "incorrect key returned after calling nplse_next()");
 static_assert(resTest&(1<<19), "incorrect key at last cursor position");
+static_assert(resTest&(1<<20), "nplse_put()ing the same key twice should produce a NPLSE__ALREADY_KEY error code");
 
 #endif // !defined(DISABLE_TESTS)
 
