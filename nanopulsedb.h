@@ -130,6 +130,12 @@ bool nplse__fileGrow(struct nplse__file *file, int len);
       (void)len;
       return true;
   }
+#else
+  #if defined(_WIN32)
+    #include <winbase.h>
+  #else
+    #include <sys/mman.h>
+  #endif
 #endif
 
 #if !defined(NANOPULSE_CHUNK_SIZE)
@@ -156,6 +162,8 @@ enum nplse__errorCodes
     NPLSE__ALREADY_KEY,
     NPLSE__KEY_NOT_FOUND
 };
+
+COMPTIME int szBloommap = sizeof(unsigned) * 8;
 
 typedef struct nanopulseDB
 {
@@ -194,7 +202,7 @@ typedef struct nanopulseDB
     // Hashing:
     unsigned seed;
     unsigned bloommap;
-    int bloomcounters[sizeof(unsigned) * 8];
+    int bloomcounters[szBloommap];
     
     // Error code
     enum nplse__errorCodes ec;
@@ -251,6 +259,10 @@ static const char *nplse_getError();
   #define nplse__malloc(sz)          malloc(sz)
   #define nplse__realloc(p,newsz)    realloc(p,newsz)
   #define nplse__free(p)             free(p)
+#endif
+
+#ifndef NANOPULSE_TIME
+  #include <time.h>
 #endif
 
 inline constexpr void nplse__bloomPut(nanopulseDB *instance)
@@ -633,7 +645,7 @@ static nanopulseDB *nplse_open(const char *filename)
     // Read fn:
     newInstance->nplse__read = nplse__dbRead;
     // setup bitvec:
-    newInstance->occupied.bitvec = (unsigned *)nplse__malloc(sizeof(unsigned) * 1);
+    newInstance->occupied.bitvec = (unsigned *)nplse__malloc(sizeof(unsigned) * 8);
     newInstance->occupied.szVec = 1;
     newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
     // setup node list:
@@ -642,7 +654,7 @@ static nanopulseDB *nplse_open(const char *filename)
     newInstance->cursor = 0;
     // init bloomfilter
     newInstance->bloommap = 0;
-    for (int i=0; i<sizeof(newInstance->bloomcounters); ++i)
+    for (int i=0; i<szBloommap; ++i)
         newInstance->bloomcounters[i] = 0;
     // reset error
     newInstance->ec = NPLSE__OK;
@@ -829,7 +841,6 @@ constexpr unsigned nplse__testSkiplist()
     const bool TEST_HEAD_IS_ZERO = testDB.headD == 0;
     nplse__insertSkipnode(&testDB, 333, 1);
     const bool TEST_NODE_ADD =  testNodes[0].nodeid == 111
-                             && testNodes[1].nodeid == 333
                              && testNodes[testDB.headD].nodeid == 111
                              && testDB.headD == 0
                              && testNodes[0].next == 1
@@ -848,12 +859,14 @@ constexpr unsigned nplse__testSkiplist()
     const nplse__skipnode *first  = nplse__findSkipnode(&testDB, 111, &prevFirst);
     const nplse__skipnode *second = nplse__findSkipnode(&testDB, 333, &prevSecond);
     const nplse__skipnode *third  = nplse__findSkipnode(&testDB, 222, &prevThird);
-    const bool TEST_NODES_FOUND =  first->filepos==0  && prevFirst==0
+    const bool TEST_NODES_FOUND =   first && second && third
+                                && first->filepos==0  && prevFirst==0
                                 && second->filepos==1 && testNodes[prevSecond].nodeid==222
                                 && third->filepos==2  && testNodes[prevThird].nodeid==111;
     // add node to end:
     nplse__insertSkipnode(&testDB, 444, 3);
-    const bool TEST_NODE_AT_END =  nplse__findSkipnode(&testDB, 444, nullptr)->filepos == 3
+    const nplse__skipnode *found = nplse__findSkipnode(&testDB, 444, nullptr);
+    const bool TEST_NODE_AT_END =  found && found->filepos == 3
                                 && testNodes[3].nodeid == 444
                                 && testNodes[1].next == 3
                                 && testNodes[3].next == 0;
@@ -882,12 +895,12 @@ static_assert(resList& 32, "node at end not found");
 static_assert(resList& 64, "nplse__findSkipnode() did not return NULL");
 
 
-constexpr unsigned nplse__testDB()
+constexpr unsigned nplse__testDBOps()
 {
     // setup:
     unsigned char testBuffer[33*64] = {0};
     unsigned char fakeFile[4*32*64] = {0};
-    nplse__skipnode testNodes[4*32];
+    nplse__skipnode testNodes[3*32];
     nanopulseDB testDB{ .buffer=testBuffer,
                         .szBuf=sizeof(testBuffer),
                         .mappedArray=fakeFile,
@@ -938,7 +951,7 @@ constexpr unsigned nplse__testDB()
                                            && testDB.nodeVec[0].next == 0;
     // get:
     const unsigned char *resA = nplse_get(&testDB, keyA, 6, nullptr);
-    const bool TEST_GET_SUCCESS_A =  (resA[0]=='w') && (resA[50]=='e') && (resA[51]=='f') && (resA[52]=='.') && (resA[53]==',');
+    const bool TEST_GET_SUCCESS_A = resA && (resA[0]=='w') && (resA[50]=='e') && (resA[51]=='f') && (resA[52]=='.') && (resA[53]==',');
     // put again:
     unsigned char keyB[5] = "lexi";
     unsigned char valB[5] = "paxi";
@@ -955,7 +968,7 @@ constexpr unsigned nplse__testDB()
     // get again:
     int vallen=0;
     const unsigned char *resB = nplse_get(&testDB, keyB, 5, &vallen);
-    const bool TEST_GET_SUCCESS_B = resB[0]=='p' && vallen==5;
+    const bool TEST_GET_SUCCESS_B = resB && resB[0]=='p' && vallen==5;
     // get s/thing that doesn't exist:
     unsigned char keyC[5] = "😕";
     const unsigned char *notFound = nplse_get(&testDB, keyC, 5, nullptr);
@@ -976,14 +989,14 @@ constexpr unsigned nplse__testDB()
     // get last:
     const unsigned char *oldkey = nplse_get(&testDB, keyA, 6, nullptr);
     const unsigned char *last = nplse_get(&testDB, keyD, 6, nullptr);
-    const bool TEST_GET_MANY_SUCCESS =  last[0] == keyD[4];
+    const bool TEST_GET_MANY_SUCCESS = last && last[0] == keyD[4];
     // get all:
     bool didGet = true;
     for (int i=0; i<30; ++i)
     {
         keyD[4] = i+'0';
         const unsigned char *valD = nplse_get(&testDB, keyD, 6, nullptr);
-        didGet = didGet && (valD[0] == i+'0');
+        didGet = didGet && valD && (valD[0] == i+'0');
     }
     const bool TEST_GET_MANY_SUCCESS_PART2 = didGet;
     // put very big value:
@@ -998,23 +1011,26 @@ constexpr unsigned nplse__testDB()
     const bool TEST_33_SLOTS_TAKEN = marked;
     // get 'big':
     const unsigned char *resE = nplse_get(&testDB, keyE, 18, &vallen);
-    const bool TEST_BIG_VAL = (vallen == 32*64+1) && resE[32*64]=='x' && resE[32*64-1]!='x';
+    const bool TEST_BIG_VAL = resE && (vallen == 32*64+1) && resE[32*64]=='x' && resE[32*64-1]!='x';
     // check if cursor points to first record:
     int keylen = 0;
     unsigned char *curKey = nplse_curGet(&testDB, &keylen);
-    const bool TEST_KEY_AT_CURSOR =  (keylen == 6)
+    const bool TEST_KEY_AT_CURSOR =  curKey
+                                  && (keylen == 6)
                                   && curKey[0] == 'h'
                                   && curKey[4] == 'o';
     // shift cursor
     nplse_next(&testDB);
     curKey = nplse_curGet(&testDB, &keylen);
-    const bool TEST_KEY_AFTER_CALLING_NEXT =  (keylen == 5)
+    const bool TEST_KEY_AFTER_CALLING_NEXT =  curKey
+                                           && (keylen == 5)
                                            && curKey[0] == 'l'
                                            && curKey[3] == 'i';
     for (int i=0; i<31; ++i)
         nplse_next(&testDB);
     curKey = nplse_curGet(&testDB, &keylen);
-    const bool TEST_LAST_KEY_AFTER_CALLING_NEXT =  (keylen == 18)
+    const bool TEST_LAST_KEY_AFTER_CALLING_NEXT =  curKey
+                                                && (keylen == 18)
                                                 && curKey[0] == 'h'
                                                 && curKey[16] == 'G';
     // cursor end
@@ -1049,29 +1065,127 @@ constexpr unsigned nplse__testDB()
          | (TEST_DOUBLE_PUT_SHOULD_FAIL << 20)
          ;
 }
-static constexpr unsigned resTest = nplse__testDB();
+static constexpr unsigned resTestOps = nplse__testDBOps();
 
-static_assert(resTest&     1 , "nplse_put() failed");
-static_assert(resTest&(1<< 1), "the fakeFile did not contain correct data after nplse_put()");
-static_assert(resTest&(1<< 2), "last two bits were not marked 'occupied' after nplse_put()");
-static_assert(resTest&(1<< 3), "node incorrect");
-static_assert(resTest&(1<< 4), "nplse_get() did not return 'wurld'");
-static_assert(resTest&(1<< 5), "nplse_put() failed with 'lexi'");
-static_assert(resTest&(1<< 6), "the fakeFile did not contain correct data after another nplse_put()");
-static_assert(resTest&(1<< 7), "three slots should now be occupied");
-static_assert(resTest&(1<< 8), "second node not correct");
-static_assert(resTest&(1<< 9), "second key/val incorrect");
-static_assert(resTest&(1<<10), "should be NULL, instead some value was returned!");
-static_assert(resTest&(1<<11), "could not nplse_put() all the keys");
-static_assert(resTest&(1<<12), "nplse_get() failed to return desired value");
-static_assert(resTest&(1<<13), "at least one value returned did not match the original data");
-static_assert(resTest&(1<<14), "could not nplse_put() big value");
-static_assert(resTest&(1<<15), "not all slots marked 'occupied'");
-static_assert(resTest&(1<<16), "nplse_get() did not return a large value correctly");
-static_assert(resTest&(1<<17), "the key at the cursor position should be the first key");
-static_assert(resTest&(1<<18), "incorrect key returned after calling nplse_next()");
-static_assert(resTest&(1<<19), "incorrect key at last cursor position");
-static_assert(resTest&(1<<20), "nplse_put()ing the same key twice should produce a NPLSE__ALREADY_KEY error code");
+static_assert(resTestOps&     1 , "nplse_put() failed");
+static_assert(resTestOps&(1<< 1), "the fakeFile did not contain correct data after nplse_put()");
+static_assert(resTestOps&(1<< 2), "last two bits were not marked 'occupied' after nplse_put()");
+static_assert(resTestOps&(1<< 3), "node incorrect");
+static_assert(resTestOps&(1<< 4), "nplse_get() did not return 'wurld'");
+static_assert(resTestOps&(1<< 5), "nplse_put() failed with 'lexi'");
+static_assert(resTestOps&(1<< 6), "the fakeFile did not contain correct data after another nplse_put()");
+static_assert(resTestOps&(1<< 7), "three slots should now be occupied");
+static_assert(resTestOps&(1<< 8), "second node not correct");
+static_assert(resTestOps&(1<< 9), "second key/val incorrect");
+static_assert(resTestOps&(1<<10), "should be NULL, instead some value was returned!");
+static_assert(resTestOps&(1<<11), "could not nplse_put() all the keys");
+static_assert(resTestOps&(1<<12), "nplse_get() failed to return desired value");
+static_assert(resTestOps&(1<<13), "at least one value returned did not match the original data");
+static_assert(resTestOps&(1<<14), "could not nplse_put() big value");
+static_assert(resTestOps&(1<<15), "not all slots marked 'occupied'");
+static_assert(resTestOps&(1<<16), "nplse_get() did not return a large value correctly");
+static_assert(resTestOps&(1<<17), "the key at the cursor position should be the first key");
+static_assert(resTestOps&(1<<18), "incorrect key returned after calling nplse_next()");
+static_assert(resTestOps&(1<<19), "incorrect key at last cursor position");
+static_assert(resTestOps&(1<<20), "nplse_put()ing the same key twice should produce a NPLSE__ALREADY_KEY error code");
+
+constexpr unsigned nplse__testDBput()
+{
+    unsigned char testBuffer[25*256] = {0};
+    unsigned char fakeFile[(25*256)+(25*256)+(25*256)] = {0};
+    nplse__skipnode testNodes[3];
+    nanopulseDB anotherTestDB{ .buffer=testBuffer,
+                               .szBuf=sizeof(testBuffer),
+                               .mappedArray=fakeFile,
+                               .chunkSize=256,
+                               .nodeVec=testNodes,
+                               .seed=4242
+                             };
+    auto testWrite = [](nanopulseDB *instance, int location, int amount)->int
+                     {
+                         unsigned char *data = &instance->mappedArray[location];
+                         for (int i=0; i<amount; ++i)
+                             data[i] = instance->buffer[i];
+                         return 0; // success
+                     };
+    auto testRead = [](nanopulseDB *instance, int location, int amount)
+                    {
+                        unsigned char *data = &instance->mappedArray[location];
+                        for (int i=0; i<amount; ++i)
+                            instance->buffer[i] = data[i];
+                        return 0; // success
+                    };
+    anotherTestDB.nplse__write = testWrite;
+    anotherTestDB.nplse__read = testRead;
+    unsigned bitvecBits[3/* *32 */] = {0};
+    anotherTestDB.occupied.bitvec = bitvecBits;
+    anotherTestDB.occupied.szVec  = 1;
+    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->int
+                     {
+                         if ((bitvec->szVec+amount) <= 3)
+                         {
+                             bitvec->szVec += amount;
+                             return 0;
+                         }
+                         return 1;
+                     };
+    anotherTestDB.occupied.nplse__bitvecAlloc = testAlloc;
+    
+    auto makeKey = [](unsigned char *key, const unsigned src)
+    {
+        key[0] = (src>>24)&0xff;
+        key[1] = (src>>16)&0xff;
+        key[2] = (src>> 8)&0xff;
+        key[3] =  src     &0xff;
+        key[4] = '.';
+        key[5] = '.';
+    };
+    
+    unsigned char key[6] = {0};
+    makeKey(key, 12345678);
+    unsigned char val[6400] = {0};
+    for (int i=0; i<6400; ++i)
+        val[i] = '.';
+    
+    const bool TEST_PUT_SUCCESS_01 = nplse_put(&anotherTestDB, key, 6, val, 6400) == 0;
+    unsigned char *res01 = nplse_get(&anotherTestDB, key, 6, nullptr);
+    const bool TEST_GET_SUCCESS_01 = res01 != nullptr;
+    
+    makeKey(key, 87654321);
+    
+    const bool TEST_PUT_SUCCESS_02 = nplse_put(&anotherTestDB, key, 6, val, 6400) == 0;
+    unsigned char *res02 = nplse_get(&anotherTestDB, key, 6, nullptr);
+    const bool TEST_GET_SUCCESS_02 = res02 != nullptr;
+    
+    makeKey(key, 12343210);
+    val[0] = 'a'; val[6143] = 'z';
+ 
+    const bool TEST_PUT_SUCCESS_03 = nplse_put(&anotherTestDB, key, 6, val, 6400) == 0;
+    unsigned char *res03 = nplse_get(&anotherTestDB, key, 6, nullptr);
+    const bool TEST_GET_SUCCESS_03 = res03 != nullptr;
+    
+    const bool TEST_VALUES_ARE_CORRECT =  res03
+                                       && res03[0] == 'a'
+                                       && res03[6143] == 'z';
+    
+    return  TEST_PUT_SUCCESS_01
+         | (TEST_GET_SUCCESS_01 << 1)
+         | (TEST_PUT_SUCCESS_02 << 2)
+         | (TEST_GET_SUCCESS_02 << 3)
+         | (TEST_PUT_SUCCESS_03 << 4)
+         | (TEST_PUT_SUCCESS_03 << 5)
+         | (TEST_VALUES_ARE_CORRECT << 6)
+         ;
+}
+static constexpr unsigned resTestPut = nplse__testDBput();
+
+static_assert(resTestPut&  1, "did not put key (1)");
+static_assert(resTestPut&  2, "did not get key (1)");
+static_assert(resTestPut&  4, "did not put key (2)");
+static_assert(resTestPut&  8, "did not get key (2)");
+static_assert(resTestPut& 16, "did not put key (3)");
+static_assert(resTestPut& 32, "did not get key (3)");
+static_assert(resTestPut& 63, "res03 values incorrect");
 
 #endif // !defined(DISABLE_TESTS)
 
