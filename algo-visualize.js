@@ -5,6 +5,48 @@
 const { Tracer, Array1DTracer, Array2DTracer, LogTracer, Layout, VerticalLayout } = require('algorithm-visualizer');
 // }
 
+var nodevec = [ {
+    "id" : 0,
+    "fileidx" : 0,
+    "next" : [0,0,0,0],
+    "visits" : 0
+    },
+    {
+    "id" : 0,
+    "fileidx" : 0,
+    "next" : [0,0,0,0],
+    "visits" : 0
+    },
+    {
+    "id" : 0,
+    "fileidx" : 0,
+    "next" : [0,0,0,0],
+    "visits" : 0
+    },
+    {
+    "id" : 0,
+    "fileidx" : 0,
+    "next" : [0,0,0,0],
+    "visits" : 0
+    },
+    {
+    "id" : 0,
+    "fileidx" : 0,
+    "next" : [0,0,0,0],
+    "visits" : 0
+    },
+    {
+    "id" : 0,
+    "fileidx" : 0,
+    "next" : [0,0,0,0],
+    "visits" : 0
+    },
+    {
+    "id" : 0,
+    "fileidx" : 0,
+    "next" : [0,0,0,0],
+    "visits" : 0
+    } ];
 var ni = [  0,  0,  0,  0,  0,  0,  0];
 var nf = [  0,  0,  0,  0,  0,  0,  0];
 var nn = [  [0,0,0,0,0,0,0],
@@ -51,11 +93,13 @@ function insertNewSkipnode(key, filepos) {
     tracerfile.select(newNodeAddr);
     Tracer.delay();
     // }
-    ni[newNodeAddr] = key;
-    nf[newNodeAddr] = filepos;
+    
+    nodevec[newNodeAddr].id = key;
+    nodevec[newNodeAddr].fileidx = filepos;
+    
     // visualize {
-    tracerids.patch(newNodeAddr, ni[newNodeAddr]);
-    tracerfile.patch(newNodeAddr, nf[newNodeAddr]);
+    tracerids.patch(newNodeAddr, nodevec[newNodeAddr].id);
+    tracerfile.patch(newNodeAddr, nodevec[newNodeAddr].fileidx);
     Tracer.delay();
     tracerids.depatch(newNodeAddr);
     tracerfile.depatch(newNodeAddr);
@@ -70,15 +114,15 @@ function insertSkipnode(key, pos, layer) {
     // }
     
     if (key < ni[heads[layer]]) {
-        nn[0][pos] = pos;
-        nn[1][pos] = pos;
-        nn[2][pos] = pos;
-        nn[layer][pos] = heads[layer];
+        nodevec[pos].next[0] = pos;
+        nodevec[pos].next[1] = pos;
+        nodevec[pos].next[2] = pos;
+        nodevec[pos].next[layer] = heads[layer];
         // visualize {
-        tracernext.patch(0, pos, nn[0][pos]);
-        tracernext.patch(1, pos, nn[1][pos]);
-        tracernext.patch(2, pos, nn[2][pos]);
-        tracernext.patch(layer, pos, nn[layer][pos]);
+        tracernext.patch(0, pos, nodevec[pos].next[0]);
+        tracernext.patch(1, pos, nodevec[pos].next[1]);
+        tracernext.patch(2, pos, nodevec[pos].next[2]);
+        tracernext.patch(layer, pos, nodevec[pos].next[layer]);
         Tracer.delay();
         tracernext.depatch(0, pos);
         tracernext.depatch(1, pos);
@@ -96,7 +140,7 @@ function insertSkipnode(key, pos, layer) {
     var next = 0;
     
     for (var i=0; i<nKeys-2; i++) {
-        next = nn[layer][current];
+        next = nodevec[current].next[layer];
         // visualize {
         logger.println(`  current: ${current}`);
         logger.println(`  next: ${next}`);
@@ -108,19 +152,19 @@ function insertSkipnode(key, pos, layer) {
         tracernext.select(layer, current);
         Tracer.delay();
         // }
-        if (ni[next] > key) {
+        if (nodevec[next].id > key) {
             // visualize {
             logger.println(`--- break ----`);
             Tracer.delay();
             // }
-            nn[0][pos] = pos;
-            nn[1][pos] = pos;
-            nn[2][pos] = pos;
-            nn[layer][pos] = next;
+            nodevec[pos].next[0] = pos;
+            nodevec[pos].next[1] = pos;
+            nodevec[pos].next[2] = pos;
+            nodevec[pos].next[layer] = next;
             // visualize {
-            tracernext.patch(0, pos, nn[0][pos]);
-            tracernext.patch(1, pos, nn[1][pos]);
-            tracernext.patch(2, pos, nn[2][pos]);
+            tracernext.patch(0, pos, nodevec[pos].next[0]);
+            tracernext.patch(1, pos, nodevec[pos].next[1]);
+            tracernext.patch(2, pos, nodevec[pos].next[2]);
             tracernext.patch(layer, pos, next);
             Tracer.delay();
             tracernext.depatch(0, pos);
@@ -141,7 +185,7 @@ function insertSkipnode(key, pos, layer) {
 
     
     
-    nn[layer][current] = pos;
+    nodevec[current].next[layer] = pos;
     // visualize {
     tracernext.patch(layer, current, pos);
     Tracer.delay();
@@ -167,19 +211,19 @@ function findPrevSkipnode(key, start, layer) {
         tracerfile.deselect(0, N-1);
         tracernext.deselect(0, 0, 3, 6);
         // }
-        if (layer <3 && (prev===current || ni[current] > key)) {
+        if (layer <3 && (prev===current || nodevec[current].id > key)) {
             // overshoot or empty
             // visualize {
             tracervis.select(current);
-            logger.println(`layer: ${layer} ni[cur] ${ni[current]} prev ${prev} cur ${current}`);
+            logger.println(`layer: ${layer} nodevec[cur].id ${nodevec[current].id} prev ${prev} cur ${current}`);
             Tracer.delay();
             tracervis.deselect(0, N-1);
             // }
-            return findPrevSkipnode(key, nn[layer+1][prev], layer+1);
+            return findPrevSkipnode(key, nodevec[current].next[layer+1], layer+1);
         } else if (ni[current] === key) {
-            vv[current] += 1;
+            nodevec[current].visits += 1;
             visits += 1;
-            if (((vv[current]*100) / visits) > 20) {
+            if (((nodevec[current].visits*100) / visits) > 20) {
                 // promote:
                 // visualize {
                 logger.println(`promote new layer: ${layer-1} cur: ${current}`);
@@ -194,7 +238,7 @@ function findPrevSkipnode(key, start, layer) {
             tracervis.depatch(current);
             // }
             return current;
-        } else if (ni[current] >= key) {
+        } else if (nodevec[current].id >= key) {
             i = nKeys; // break
             // visualize {
             logger.println(`stopping early. cur hay: ${current} needle ${key}`);
@@ -203,7 +247,7 @@ function findPrevSkipnode(key, start, layer) {
             return prev;
         }
         prev = current;
-        current = nn[layer][current];
+        current = nodevec[current].next[layer];
     }
 }
 
