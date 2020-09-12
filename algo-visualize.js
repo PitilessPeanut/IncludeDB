@@ -113,7 +113,7 @@ function insertSkipnode(key, pos, layer) {
     tracernext.select(layer, pos);
     // }
     
-    if (key < ni[heads[layer]]) {
+    if (key < nodevec[heads[layer]]) {
         nodevec[pos].next[0] = pos;
         nodevec[pos].next[1] = pos;
         nodevec[pos].next[2] = pos;
@@ -174,6 +174,13 @@ function insertSkipnode(key, pos, layer) {
             // }
             break;
         }
+        else if (current === next) {
+            // visualize {
+            logger.println(`STOP`);
+            Tracer.delay();
+            // }
+            i = nKeys; // break
+        }
         current = next;
     }
     
@@ -194,8 +201,12 @@ function insertSkipnode(key, pos, layer) {
 }
 
 function findSkipnode(key) {
-    findPrevSkipnode(key, heads[0], 0);
-    return "not found";
+    const res = findPrevSkipnode(key, heads[0], 0);
+    // visualize {
+        logger.println(`res: ${res} key: ${key}`);
+        Tracer.delay();
+    // }
+    return nodevec[res].id === key ? res : "not found";
 }
 
 function findPrevSkipnode(key, start, layer) {
@@ -220,7 +231,7 @@ function findPrevSkipnode(key, start, layer) {
             tracervis.deselect(0, N-1);
             // }
             return findPrevSkipnode(key, nodevec[current].next[layer+1], layer+1);
-        } else if (ni[current] === key) {
+        } else if (nodevec[current].id === key) {
             nodevec[current].visits += 1;
             visits += 1;
             if (((nodevec[current].visits*100) / visits) > 20) {

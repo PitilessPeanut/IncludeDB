@@ -5,7 +5,7 @@ Meant to be used in environments with limited resources or in situations where a
 
 ## THIS PROJECT NEEDS YOUR SUPPORT!
 
-If you like this project or find it useful in any way, please please PLEASE consider helping out - even just a little bit! It helps immensely!
+If you like this project or find it useful in any way, please help out - even just a little bit! It helps immensely!
 Donate here:
 
 <img src="images/btc.png" width="150px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="150px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh"><img src="images/bsv.png" width="150px" alt="15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP"><img src="images/eth.png" width="150px" alt="0x32a42d02eB021914FE8928d4A60332970F96f2cd">
@@ -17,16 +17,11 @@ DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
 - memory mapping
 - Support for concurrent read
 - Support for thread-safe write
-- Tests for Windows support
-- Write ahead logging
-- Bloom filters
+- Proper Windows support
 - *delete* a key/value pair
-- large file stress tests
-- file lock
-- integrity check
 - recover keys
 - benches
-- maybe more stuff, such as a standalone version. I'm open for suggestions...
+- maybe more stuff, I'm open for suggestions...
 - **A better logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
 
 ### Table of Contents
