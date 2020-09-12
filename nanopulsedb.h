@@ -142,12 +142,6 @@ bool nplse__fileGrow(struct nplse__file *file, int len);
   #define NANOPULSE_CHUNK_SIZE 256
 #endif
 
-#if !defined(NANOPULSE_CACHE_SIZE)
-  #define NANOPULSE_CACHE_SIZE 1024
-#endif
-
-#define NANOPULSE_MAX_CACHE_ITEMS NANOPULSE_CACHE_SIZE/NANOPULSE_CHUNK_SIZE
-
 struct nanopulseDB;
 
 typedef int (*pnplse__write)(struct nanopulseDB *instance, int location, int amount);
@@ -195,10 +189,6 @@ typedef struct nanopulseDB
     int totalVisits;
     int cursor;
     
-    // Cache
-    int cacheIds[NANOPULSE_MAX_CACHE_ITEMS];
-    // cachesize // max # of entries in cache = sz/chunksize - - can be less than that
-    
     // Hashing:
     unsigned seed;
     unsigned bloommap;
@@ -243,7 +233,7 @@ static nanopulseDB *nplse_open(const char *filename);
 static void nplse_close(nanopulseDB *instance);
 
 // Get error
-static const char *nplse_getError();
+static const char *nplse_getError(nanopulseDB *instance);
 
 
 
@@ -396,7 +386,6 @@ inline constexpr int nplse__gatherSlots(nanopulseDB *instance, int requiredSlots
         const int amount = (requiredSlots/32) + 1;
         if (bitvec->nplse__bitvecAlloc(bitvec, amount))
         {
-            COMPTIME char error[] = "Couldn't grow bitvec. Out of mem?";
             instance->ec = NPLSE__BITVEC_ALLOC;
             return -1; // failed
         }
@@ -473,7 +462,6 @@ static constexpr int nplse__dbBufferResize(nanopulseDB *instance, int newsize)
         unsigned char *tmp = (unsigned char *)nplse__realloc(instance->buffer, instance->szBuf);
         if (!tmp)
         {
-            COMPTIME char error[] = "nplse__dbRead(): failed to realloc buffer";
             instance->ec = NPLSE__BUFFER_ALLOC;
             return 1;
         }
@@ -616,7 +604,7 @@ static nanopulseDB *nplse_open(const char *filename)
         (void)     buf[7];
         if (!ok)
         {
-            COMPTIME char error[] = "Couldn't open db. Incompatible version";
+            nplse__errorMsg= "Couldn't open db. Incompatible version";
             nplse__free(newInstance);
             return nullptr;
         }
@@ -704,14 +692,36 @@ static void nplse_close(nanopulseDB *instance)
     buf[0]=sd>>24; buf[1]=(sd>>16)&0xff; buf[2]=(sd>>8)&0xff; buf[3]=sd&0xff;
     nplse__fileWrite(&instance->file, buf, 4, 20);
     
-    
-    // todo save cache
     nplse__free(instance->buffer);
     nplse__fileClose(&instance->file);
     nplse__free(instance->occupied.bitvec);
     // todo: write all visits from nodes to file!
     nplse__free(instance->nodeVec);
     nplse__free(instance);
+}
+
+static const char *nplse_getError(nanopulseDB *instance)
+{
+    if (!instance)
+        return nplse__errorMsg;
+    switch (instance->ec)
+    {
+        case NPLSE__BITVEC_ALLOC:
+            nplse__errorMsg = "Couldn't grow bitvec. Out of mem?";
+            break;
+        case NPLSE__BUFFER_ALLOC:
+            nplse__errorMsg = "nplse__dbRead(): failed to realloc buffer";
+            break;
+        case NPLSE__ALREADY_KEY:
+            nplse__errorMsg = "key already exists";
+            break;
+        case NPLSE__SLOTS_ALLOC:
+            nplse__errorMsg = "couldn't allocate more slots. Out of mem?";
+            break;
+        default:
+            nplse__errorMsg = "Ok";
+    }
+    return nplse__errorMsg;
 }
 
 
@@ -726,13 +736,6 @@ static void nplse_close(nanopulseDB *instance)
 
 
 #if !defined(DISABLE_TESTS)
-
-constexpr unsigned nplse__testCache()
-{
-    return 0;
-}
-static constexpr unsigned resCache = nplse__testCache();
-
 
 constexpr unsigned nplse__testBitvec()
 {
