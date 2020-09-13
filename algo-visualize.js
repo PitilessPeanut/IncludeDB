@@ -113,7 +113,7 @@ function insertSkipnode(key, pos, layer) {
     tracernext.select(layer, pos);
     // }
     
-    if (key < nodevec[heads[layer]]) {
+    if (key < nodevec[heads[layer]].id) {
         nodevec[pos].next[0] = pos;
         nodevec[pos].next[1] = pos;
         nodevec[pos].next[2] = pos;
@@ -244,22 +244,22 @@ function findPrevSkipnode(key, start, layer) {
             }
             
             // visualize {
-            tracervis.patch(current, vv[current]);
+            tracervis.patch(current, nodevec[current].visits);
             Tracer.delay();
             tracervis.depatch(current);
             // }
             return current;
         } else if (nodevec[current].id >= key) {
-            i = nKeys; // break
             // visualize {
             logger.println(`stopping early. cur hay: ${current} needle ${key}`);
             Tracer.delay();
             // }
-            return prev;
+            break;
         }
         prev = current;
         current = nodevec[current].next[layer];
     }
+    return prev;
 }
 
 function start() {
