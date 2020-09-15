@@ -199,7 +199,7 @@ typedef struct nanopulseDB
 } nanopulseDB;
 
 // Error:
-static const char *nplse__error;
+static const char *nplse__errorMsg;
 
 
 
@@ -531,6 +531,35 @@ static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, 
 
 static constexpr unsigned char *nplse_get(nanopulseDB *instance, unsigned char *key, int keylen, int *vallen)
 {
+    instance->ec = NPLSE__KEY_NOT_FOUND;
+    const unsigned keyhash = nplse__xx32(key, keylen, instance->seed);
+    if (nplse__bloomMaybeHave(instance, keyhash) == false)
+        return nullptr;
+        
+    // todo increase priority
+    
+    COMPTIME unsigned headerSize = nplse__header_keyhashLen
+                                 + nplse__header_keylenLen
+                                 + nplse__header_vallenLen
+                                 + nplse__header_recordPriorityLen;
+    nplse__skipnode *found = nplse__findSkipnode(instance, keyhash);
+    if (found)
+    {
+        // read header
+        instance->nplse__read(instance, found->filepos, headerSize);
+        unsigned char *data = &instance->buffer[nplse__header_keyhashLen];
+        const unsigned kl = (data[0]<<24) | (data[1]<<16) | (data[2]<< 8) | data[3];
+        data += nplse__header_keylenLen;
+        const unsigned vl = (data[0]<<24) | (data[1]<<16) | (data[2]<< 8) | data[3];
+        // read rest
+        instance->nplse__read(instance, found->filepos+headerSize + kl, vl);
+        int unusedVallen = 0; // In case vallen == nullptr
+        vallen = vallen ? : &unusedVallen;
+        *vallen = vl;
+        instance->ec = NPLSE__OK;
+        return instance->buffer;
+    }
+    return nullptr;
 }
 
 //static constexpr void nplse_delete(nanopulseDB *instance, unsigned char *key, int keylen)
@@ -570,7 +599,7 @@ static nanopulseDB *nplse_open(const char *filename)
     nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
     if (!newInstance)
     {
-        COMPTIME char error[] = "Couldn't alloc db. Out of mem?";
+        nplse__errorMsg = "Couldn't alloc db. Out of mem?";
         return nullptr;
     }
      
@@ -579,7 +608,7 @@ static nanopulseDB *nplse_open(const char *filename)
     {
         if (!nplse__fileCreate(&newInstance->file, filename))
         {
-            COMPTIME char error[] = "Couldn't open db. File corrupted?";
+            nplse__errorMsg = "Couldn't open db. File corrupted?";
             // Cannot call close() on an instance that hasn't been created correctly.
             // Return NULL instead:
             nplse__free(newInstance);
@@ -612,7 +641,7 @@ static nanopulseDB *nplse_open(const char *filename)
         bool ok = buf[0]=='n' && buf[1]=='p' && buf[2]=='d' && buf[3]=='b';
         if (!ok)
         {
-            COMPTIME char error[] = "Couldn't open db. File not recognized";
+            nplse__errorMsg = "Couldn't open db. File not recognized";
             nplse__free(newInstance);
             return nullptr;
         }
@@ -623,7 +652,7 @@ static nanopulseDB *nplse_open(const char *filename)
         (void)     buf[7];
         if (!ok)
         {
-            nplse__errorMsg= "Couldn't open db. Incompatible version";
+            nplse__errorMsg = "Couldn't open db. Incompatible version";
             nplse__free(newInstance);
             return nullptr;
         }
@@ -657,6 +686,7 @@ static nanopulseDB *nplse_open(const char *filename)
     newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
     // setup node list:
     newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 4);
+    newInstance->nKeys = 0;
     // put cursor to the start
     newInstance->cursor = 0;
     // init bloomfilter
