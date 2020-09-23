@@ -1,8 +1,8 @@
 /*
-  You need to add '#define NANOPULSE_DB_IMPLEMENTATION' before including this header in ONE source file.
+  You need to add '#define INCLUDE_DB_IMPLEMENTATION' before including this header in ONE source file.
   Like this:
-      #define NANOPULSE_DB_IMPLEMENTATION
-      #include "nanopulsedb.h"
+      #define INCLUDE_DB_IMPLEMENTATION
+      #include "includedb.h"
  
   To disable compile-time unit tests:
       #define DISABLE_TESTS
@@ -242,7 +242,7 @@ static const char *nplse_getError(nanopulseDB *instance);
 
 
 
-#ifdef NANOPULSE_DB_IMPLEMENTATION
+#ifdef INCLUDE_DB_IMPLEMENTATION
 
 #ifndef NANOPULSE_MALLOC
   #include <stdlib.h>
@@ -267,9 +267,8 @@ inline constexpr void nplse__bloomRemove(nanopulseDB *instance)
 
 inline constexpr bool nplse__bloomMaybeHave(const nanopulseDB *instance, const unsigned hash)
 {
-    (void)instance;
-    (void)hash;
-    return true;
+    const unsigned h = hash & 0xffffffff;
+    return !((h & bitmap) ^ h);
 }
 
 static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsigned seed)
@@ -468,7 +467,8 @@ static constexpr int nplse__findPrevSkipnode(nanopulseDB *instance, const unsign
 
 inline constexpr nplse__skipnode *nplse__findSkipnode(nanopulseDB *instance, const unsigned key)
 {
-    const int res = nplse__findPrevSkipnode(instance, key, instance->headA, 3); // todo layer is 0!
+    //const int res = nplse__findPrevSkipnode(instance, key, instance->headA, 0);
+    const int res = nplse__findPrevSkipnode(instance, key, instance->headD, 3);
     return instance->nodeVec[res].nodeid == key ? &instance->nodeVec[res] : nullptr;
 }
 
@@ -508,6 +508,31 @@ static int nplse__dbRead(nanopulseDB *instance, int location, int amount)
     return 0;
 }
 
+static constexpr int nplse__dbAddressResize(nanopulseDB *instance, int newsize)
+{
+    (void)instance;
+    (void)newsize;
+    return 0; // Ok
+}
+
+static int nplse__dbAddressWrite(nanopulseDB *instance, int location, int amount)
+{
+    //todo
+    (void)instance;
+    (void)location;
+    (void)amount;
+    return 0;
+}
+
+static int nplse__dbAddressRead(nanopulseDB *instance, int location, int amount)
+{
+    // todo
+    (void)instance;
+    (void)location;
+    (void)amount;
+    return 0;
+}
+
 COMPTIME int nplse__header_keyhashLen        = 4;
 COMPTIME int nplse__header_keylenLen         = 4;
 COMPTIME int nplse__header_vallenLen         = 4;
@@ -526,8 +551,60 @@ COMPTIME int nplse__header_recordPriorityLen = 4;
 
 static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen)
 {
-    return -1;
-}
+        const unsigned keyhash = nplse__xx32(key, keylen, instance->seed);
+        if (nplse_get(instance, key, keylen, nullptr))
+        {
+            instance->ec = NPLSE__ALREADY_KEY;
+            return 1;
+        };
+        const int chunkSize = instance->chunkSize;
+        const int requiredSizeInByte = nplse__header_keyhashLen
+                                     + nplse__header_keylenLen
+                                     + nplse__header_vallenLen
+                                     + nplse__header_recordPriorityLen
+                                     + keylen
+                                     + vallen
+                                     + 1;
+        const int requiredSlots = (requiredSizeInByte/chunkSize) + 1; // !!(requiredSizeInByte%chunkSize);
+        const int requiredSizeOfRecord = requiredSlots*chunkSize;
+        const int location = nplse__gatherSlots(instance, requiredSlots);
+        if (location == -1)
+        {
+            instance->ec = NPLSE__SLOTS_ALLOC;
+            return 1;
+        }
+        nplse__markSlots(&instance->occupied, location, requiredSlots);
+        // Hook up new node:
+        nplse__insertNewSkipnode(instance, keyhash, location*chunkSize);
+        // Write data:
+        if (nplse__dbBufferResize(instance, requiredSizeOfRecord))
+            return 1; // Error
+        unsigned char *data = instance->buffer;
+        data[ 0] = (keyhash>>24) & 0xff;
+        data[ 1] = (keyhash>>16) & 0xff;
+        data[ 2] = (keyhash>> 8) & 0xff;
+        data[ 3] = (keyhash    ) & 0xff;
+        data[ 4] = (keylen>>24) & 0xff;
+        data[ 5] = (keylen>>16) & 0xff;
+        data[ 6] = (keylen>> 8) & 0xff;
+        data[ 7] = (keylen    ) & 0xff;
+        data[ 8] = (vallen>>24) & 0xff;
+        data[ 9] = (vallen>>16) & 0xff;
+        data[10] = (vallen>> 8) & 0xff;
+        data[11] = (vallen    ) & 0xff;
+        // priority is 0 for a new record:
+        data[12] = 0;
+        data[13] = 0;
+        data[14] = 0;
+        data[15] = 0;
+        data += 16;
+        // key first:
+        for (int i=0; i<keylen; ++i, data++)
+            *data = key[i];
+        for (int i=0; i<vallen; ++i, data++)
+            *data = val[i];
+        return instance->nplse__write(instance, location*chunkSize, requiredSizeOfRecord);
+    }
 
 static constexpr unsigned char *nplse_get(nanopulseDB *instance, unsigned char *key, int keylen, int *vallen)
 {
@@ -1238,7 +1315,7 @@ static_assert(resTestPut& 63, "res03 values incorrect");
 
 #endif // !defined(DISABLE_TESTS)
 
-#endif // NANOPULSE_DB_IMPLEMENTATION
+#endif // INCLUDE_DB_IMPLEMENTATION
 
 
 #endif // NANOPULSE_DB_H

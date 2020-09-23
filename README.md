@@ -74,7 +74,7 @@ The database can also be operated entirely during compile time, providing you wi
 I hope the code is somewhat readable and not too much of a mess. Either way contributions are very welcome, feel free to msg me or issue a request!
 
 ## Similar projects
-Nanopulse is a tiny database engine with limited features designed for a niche purpose. If you need a more established library we encourage you to check out these:
+Nanopulse is a "storage engine" more than a database with limited features designed for a niche purpose. If you need a more established library we encourage you to check out these:
 
 [RocksDB](https://github.com/facebook/rocksdb) High performance, log based k/v 
 
