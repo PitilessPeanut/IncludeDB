@@ -1,7 +1,7 @@
 /*
-  You need to add '#define INCLUDE_DB_IMPLEMENTATION' before including this header in ONE source file.
+  You need to add '#define INCLUDEDB_IMPLEMENTATION' before including this header in ONE source file.
   Like this:
-      #define INCLUDE_DB_IMPLEMENTATION
+      #define INCLUDEDB_IMPLEMENTATION
       #include "includedb.h"
  
   To disable compile-time unit tests:
@@ -215,7 +215,7 @@ static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, 
 
 // Get a pointer to an existing record. *vallen contains the size of the returned value in bytes and can be NULL if
 // you are not interested in it. Calling this is going to invalidate previously retuned pointers
-static constexpr unsigned char *nplse_get(nanopulseDB *instance, unsigned char *key, int keylen, int *vallen);
+static constexpr unsigned char *nplse_get(nanopulseDB *instance, const unsigned char *key, int keylen, int *vallen);
 
 // Delete record at key (TODO)
 //static constexpr void nplse_delete(nanopulseDB *instance, unsigned char *key, int keylen);
@@ -242,7 +242,7 @@ static const char *nplse_getError(nanopulseDB *instance);
 
 
 
-#ifdef INCLUDE_DB_IMPLEMENTATION
+#ifdef INCLUDEDB_IMPLEMENTATION
 
 #ifndef NANOPULSE_MALLOC
   #include <stdlib.h>
@@ -268,7 +268,7 @@ inline constexpr void nplse__bloomRemove(nanopulseDB *instance)
 inline constexpr bool nplse__bloomMaybeHave(const nanopulseDB *instance, const unsigned hash)
 {
     const unsigned h = hash & 0xffffffff;
-    return !((h & bitmap) ^ h);
+    return true; // !((h & instance->bloommap) ^ h);
 }
 
 static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsigned seed)
@@ -606,7 +606,7 @@ static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, 
         return instance->nplse__write(instance, location*chunkSize, requiredSizeOfRecord);
     }
 
-static constexpr unsigned char *nplse_get(nanopulseDB *instance, unsigned char *key, int keylen, int *vallen)
+static constexpr unsigned char *nplse_get(nanopulseDB *instance, const unsigned char *key, int keylen, int *vallen)
 {
     instance->ec = NPLSE__KEY_NOT_FOUND;
     const unsigned keyhash = nplse__xx32(key, keylen, instance->seed);
@@ -729,6 +729,8 @@ static nanopulseDB *nplse_open(const char *filename)
         (void)     buf[7];
         if (!ok)
         {
+            // todo upgrade version if possible!
+            
             nplse__errorMsg = "Couldn't open db. Incompatible version";
             nplse__free(newInstance);
             return nullptr;
@@ -778,7 +780,7 @@ static nanopulseDB *nplse_open(const char *filename)
     
     // Build index:
     COMPTIME int dbHeaderSize = 128;
-    int offset = 0;
+    int offset = 0, slotLocation = 0;
     unsigned char buf[20];
     for (int i=0; i<nKeys; ++i)
     {
@@ -814,6 +816,7 @@ static void nplse_close(nanopulseDB *instance)
     buf[0]=nk>>24; buf[1]=(nk>>16)&0xff; buf[2]=(nk>>8)&0xff; buf[3]=nk&0xff;
     nplse__fileWrite(&instance->file, buf, 4, 12);
     
+    // todo write inm.!!
     const unsigned sd = instance->seed;
     buf[0]=sd>>24; buf[1]=(sd>>16)&0xff; buf[2]=(sd>>8)&0xff; buf[3]=sd&0xff;
     nplse__fileWrite(&instance->file, buf, 4, 20);
@@ -999,6 +1002,7 @@ constexpr unsigned nplse__testSkiplist()
     // not found:
     const bool TEST_NODE_NOT_FOUND = nplse__findSkipnode(&testDB, 69) == nullptr;
     
+    //todo test remove
     
     return  TEST_HEAD_IS_ZERO
          | (TEST_NODE_ADD << 1)
@@ -1009,8 +1013,7 @@ constexpr unsigned nplse__testSkiplist()
          | (TEST_NODE_NOT_FOUND << 6)
          ;
 }
-
-static constexpr unsigned resList = nplse__testSkiplist();
+constexpr unsigned resList = nplse__testSkiplist();
 
 static_assert(resList&  1, "head pointing to wrong place");
 static_assert(resList&  2, "node was not correctly inserted");
@@ -1303,7 +1306,7 @@ constexpr unsigned nplse__testDBput()
          | (TEST_VALUES_ARE_CORRECT << 6)
          ;
 }
-static constexpr unsigned resTestPut = nplse__testDBput();
+constexpr unsigned resTestPut = nplse__testDBput();
 
 static_assert(resTestPut&  1, "did not put key (1)");
 static_assert(resTestPut&  2, "did not get key (1)");
@@ -1315,7 +1318,7 @@ static_assert(resTestPut& 63, "res03 values incorrect");
 
 #endif // !defined(DISABLE_TESTS)
 
-#endif // INCLUDE_DB_IMPLEMENTATION
+#endif // INCLUDEDB_IMPLEMENTATION
 
 
 #endif // NANOPULSE_DB_H
