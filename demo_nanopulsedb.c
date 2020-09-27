@@ -1,5 +1,5 @@
-#define NANOPULSE_DB_IMPLEMENTATION
-#include "nanopulsedb.h"
+#define INCLUDEDB_IMPLEMENTATION
+#include "includedb.h"
 
 int main(void)
 {

@@ -1,8 +1,9 @@
 // Copyright (c) 2020 Professor Peanut
-// MIT license see accompanying file 'nanopulsedb.h' for details
+// MIT license see accompanying file 'includedb.h' for details
 
 // import visualization libraries {
-const { Tracer, Array1DTracer, Array2DTracer, LogTracer, Layout, VerticalLayout } = require('algorithm-visualizer');
+const { Tracer, Array1DTracer, Array2DTracer, LogTracer, Layout,
+        HorizontalLayout, VerticalLayout } = require('algorithm-visualizer');
 // }
 
 var nodevec = [ {
@@ -62,10 +63,10 @@ const tracerfile = new Array1DTracer('filepos');
 const tracernext = new Array2DTracer('next');
 const tracervis = new Array1DTracer('visits');
 const logger = new LogTracer('Console');
-Layout.setRoot(new VerticalLayout([tracerids,
-                                   tracerfile,
+Layout.setRoot(new VerticalLayout([new HorizontalLayout[tracerids,
+                                                        tracerfile,
+                                                        tracervis]),
                                    tracernext,
-                                   tracervis,
                                    logger]));
 tracerids.set(ni);
 tracerfile.set(nf);
@@ -77,7 +78,6 @@ Tracer.delay();
 var heads = [0,0,0,0];
 var visits = 0;
 var nKeys = 0;//[0,0,0,0];
-var nBottomLen = 0;
 
 function getNewNodePos() {
     return nKeys++;

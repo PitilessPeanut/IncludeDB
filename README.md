@@ -1,4 +1,4 @@
-# NanopulseDB
+# IncludeDB
 
 An [stb](https://github.com/nothings/stb/)-style *#include*-only single-header k/v store implemented in C99 with an emphasis on easy-of-use.
 Meant to be used in environments with limited resources or in situations where a more complex database library would be an overkill such as small games.
@@ -34,9 +34,9 @@ DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
 - [Similar projects](#similar-projects)
 
 ## Building
-A build process is not required, simply drop *nanopulsedb.h* into your project and use.
+A build process is not required, simply drop *includedb.h* into your project and use.
 #### Demo
-Building the example program can be done with just ``cc -o demo demo_nanopulsedb.c`` When run, a _"hello.dat"_ file will be created.
+Building the example program can be done with just ``cc -o demo demo_includedb.c`` When run, a _"hello.dat"_ file will be created.
 #### Compile-time tests
 If compiled as C++ a number of unit-tests will be executed during compilation. To disable this behaviour ```#define DISABLE_TESTS``` before *#including* this file.
 
@@ -51,9 +51,9 @@ More options, such as setting a different malloc()/free() are available. Take a 
 #define NANOPULSE_CHUNK_SIZE 1024 // Optional
 
 // After that add
-#define NANOPULSE_DB_IMPLEMENTATION // Required!
+#define INCLUDEDB_IMPLEMENTATION // Required!
 // And finally
-#include "nanopulsedb.h"
+#include "includedb.h"
 
 ```
 Usage:
@@ -74,7 +74,7 @@ The database can also be operated entirely during compile time, providing you wi
 I hope the code is somewhat readable and not too much of a mess. Either way contributions are very welcome, feel free to msg me or issue a request!
 
 ## Similar projects
-Nanopulse is a "storage engine" more than a database with limited features designed for a niche purpose. If you need a more established library we encourage you to check out these:
+IncludeDB is a "storage engine" more than a database with limited features designed for a niche purpose. If you need a more established library we encourage you to check out these:
 
 [RocksDB](https://github.com/facebook/rocksdb) High performance, log based k/v 
 

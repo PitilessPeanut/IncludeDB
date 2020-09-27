@@ -8,16 +8,16 @@
       #define DISABLE_TESTS
  
   AUTHOR
-     Professor Peanut
+      Professor Peanut
  
   LICENSE
       See end of file.
  
   HISTORY
-       While in alpha, cross version compatibility is not guaranteed. Do not replace
-       this file if you need to keep your database readable.
-  
-       0.1.0  Initial release
+      While in alpha, cross version compatibility is not guaranteed. Do not replace
+      this file if you need to keep your database readable.
+ 
+      0.1.0  Initial release
  
   PEANUTS
       BTC:  1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc
@@ -65,7 +65,7 @@ typedef int (*pnplse__bitvecAlloc)(struct nplse__bitvec *bitvec, int amount);
 
 typedef struct nplse__bitvec
 {
-    CTOR3(nplse__bitvec() : bitvec(nullptr), szVec(0), nplse__bitvecAlloc(nullptr) {} )
+    CTOR3(nplse__bitvec() : bitvec(nullptr), szVec(0), nplse__bitvecAlloc(nullptr) {})
     unsigned *bitvec;
     int szVec;
     pnplse__bitvecAlloc nplse__bitvecAlloc;
@@ -112,7 +112,7 @@ bool nplse__fileGrow(struct nplse__file *file, int len);
   {
       return fclose(file->pFile);
   }
-  int  nplse__fileWrite(struct nplse__file *file, const unsigned char *bytes, int len, int filepos)
+  int  nplse__fileWrite(nplse__file *file, const unsigned char *bytes, int len, int filepos)
   {
       fseek(file->pFile, filepos, SEEK_SET);
       return fwrite(bytes, sizeof(unsigned char), len, file->pFile);
@@ -184,7 +184,7 @@ typedef struct nanopulseDB
     nplse__skipnode *nodeVec;
     int headA, headB, headC, headD;
     int nKeys;
-    //int nAllocatedSlots = 32;
+    //int nodeVecLen = 32;
     //int addressNewNode = 0;
     int globalVisits;
     int cursor;
@@ -551,60 +551,60 @@ COMPTIME int nplse__header_recordPriorityLen = 4;
 
 static constexpr int nplse_put(nanopulseDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen)
 {
-        const unsigned keyhash = nplse__xx32(key, keylen, instance->seed);
-        if (nplse_get(instance, key, keylen, nullptr))
-        {
-            instance->ec = NPLSE__ALREADY_KEY;
-            return 1;
-        };
-        const int chunkSize = instance->chunkSize;
-        const int requiredSizeInByte = nplse__header_keyhashLen
-                                     + nplse__header_keylenLen
-                                     + nplse__header_vallenLen
-                                     + nplse__header_recordPriorityLen
-                                     + keylen
-                                     + vallen
-                                     + 1;
-        const int requiredSlots = (requiredSizeInByte/chunkSize) + 1; // !!(requiredSizeInByte%chunkSize);
-        const int requiredSizeOfRecord = requiredSlots*chunkSize;
-        const int location = nplse__gatherSlots(instance, requiredSlots);
-        if (location == -1)
-        {
-            instance->ec = NPLSE__SLOTS_ALLOC;
-            return 1;
-        }
-        nplse__markSlots(&instance->occupied, location, requiredSlots);
-        // Hook up new node:
-        nplse__insertNewSkipnode(instance, keyhash, location*chunkSize);
-        // Write data:
-        if (nplse__dbBufferResize(instance, requiredSizeOfRecord))
-            return 1; // Error
-        unsigned char *data = instance->buffer;
-        data[ 0] = (keyhash>>24) & 0xff;
-        data[ 1] = (keyhash>>16) & 0xff;
-        data[ 2] = (keyhash>> 8) & 0xff;
-        data[ 3] = (keyhash    ) & 0xff;
-        data[ 4] = (keylen>>24) & 0xff;
-        data[ 5] = (keylen>>16) & 0xff;
-        data[ 6] = (keylen>> 8) & 0xff;
-        data[ 7] = (keylen    ) & 0xff;
-        data[ 8] = (vallen>>24) & 0xff;
-        data[ 9] = (vallen>>16) & 0xff;
-        data[10] = (vallen>> 8) & 0xff;
-        data[11] = (vallen    ) & 0xff;
-        // priority is 0 for a new record:
-        data[12] = 0;
-        data[13] = 0;
-        data[14] = 0;
-        data[15] = 0;
-        data += 16;
-        // key first:
-        for (int i=0; i<keylen; ++i, data++)
-            *data = key[i];
-        for (int i=0; i<vallen; ++i, data++)
-            *data = val[i];
-        return instance->nplse__write(instance, location*chunkSize, requiredSizeOfRecord);
+    const unsigned keyhash = nplse__xx32(key, keylen, instance->seed);
+    if (nplse_get(instance, key, keylen, nullptr))
+    {
+        instance->ec = NPLSE__ALREADY_KEY;
+        return 1;
+    };
+    const int chunkSize = instance->chunkSize;
+    const int requiredSizeInByte = nplse__header_keyhashLen
+                                 + nplse__header_keylenLen
+                                 + nplse__header_vallenLen
+                                 + nplse__header_recordPriorityLen
+                                 + keylen
+                                 + vallen
+                                 + 1;
+    const int requiredSlots = (requiredSizeInByte/chunkSize) + 1; // !!(requiredSizeInByte%chunkSize);
+    const int requiredSizeOfRecord = requiredSlots*chunkSize;
+    const int location = nplse__gatherSlots(instance, requiredSlots);
+    if (location == -1)
+    {
+        instance->ec = NPLSE__SLOTS_ALLOC;
+        return 1;
     }
+    nplse__markSlots(&instance->occupied, location, requiredSlots);
+    // Hook up new node:
+    nplse__insertNewSkipnode(instance, keyhash, location*chunkSize);
+    // Write data:
+    if (nplse__dbBufferResize(instance, requiredSizeOfRecord))
+        return 1; // Error
+    unsigned char *data = instance->buffer;
+    data[ 0] = (keyhash>>24) & 0xff;
+    data[ 1] = (keyhash>>16) & 0xff;
+    data[ 2] = (keyhash>> 8) & 0xff;
+    data[ 3] = (keyhash    ) & 0xff;
+    data[ 4] = (keylen>>24) & 0xff;
+    data[ 5] = (keylen>>16) & 0xff;
+    data[ 6] = (keylen>> 8) & 0xff;
+    data[ 7] = (keylen    ) & 0xff;
+    data[ 8] = (vallen>>24) & 0xff;
+    data[ 9] = (vallen>>16) & 0xff;
+    data[10] = (vallen>> 8) & 0xff;
+    data[11] = (vallen    ) & 0xff;
+    // priority is 0 for a new record:
+    data[12] = 0;
+    data[13] = 0;
+    data[14] = 0;
+    data[15] = 0;
+    data += 16;
+    // key first:
+    for (int i=0; i<keylen; ++i, data++)
+        *data = key[i];
+    for (int i=0; i<vallen; ++i, data++)
+        *data = val[i];
+    return instance->nplse__write(instance, location*chunkSize, requiredSizeOfRecord);
+}
 
 static constexpr unsigned char *nplse_get(nanopulseDB *instance, const unsigned char *key, int keylen, int *vallen)
 {
@@ -679,7 +679,7 @@ static nanopulseDB *nplse_open(const char *filename)
         nplse__errorMsg = "Couldn't alloc db. Out of mem?";
         return nullptr;
     }
-     
+    
     int nKeys = 0;
     if (!nplse__fileOpen(&newInstance->file, filename))
     {
@@ -753,7 +753,7 @@ static nanopulseDB *nplse_open(const char *filename)
         // if # of total acces > some 'limit', /2!!
     }
     // Create buffer:
-    newInstance->buffer = (unsigned char *)nplse__malloc(256);
+    newInstance->buffer = (unsigned char *)nplse__malloc(newInstance->chunkSize);
     newInstance->szBuf = 1;
     // Write fn:
     newInstance->nplse__write = nplse__dbWrite;
@@ -764,7 +764,12 @@ static nanopulseDB *nplse_open(const char *filename)
     newInstance->occupied.szVec = 1;
     newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
     // setup node list:
-    newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 4);
+    newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 1); // todo test *8 !
+    
+    
+    // todo: init heads
+    
+    
     newInstance->nKeys = 0;
     // put cursor to the start
     newInstance->cursor = 0;
@@ -776,7 +781,7 @@ static nanopulseDB *nplse_open(const char *filename)
     newInstance->ec = NPLSE__OK;
     
     
-    printf("nlky %d \n", nKeys);
+    printf("num ky %d \n", nKeys);
     
     // Build index:
     COMPTIME int dbHeaderSize = 128;
@@ -882,7 +887,7 @@ constexpr unsigned nplse__testBitvec()
     return  TEST_BIT_63
          | (TEST_BIT_64 << 1);
 }
-static constexpr unsigned resBitvec = nplse__testBitvec();
+constexpr unsigned resBitvec = nplse__testBitvec();
 
 static_assert(resBitvec&1, "bit 63 not correct");
 static_assert(resBitvec&2, "bit 64 not correct");
@@ -924,7 +929,7 @@ constexpr unsigned nplse__testSlots()
     // test large allocation:
     location = nplse__gatherSlots(&testDB, 24+39);
     nplse__markSlots(&testDB.occupied, location, 24+39);
-    const bool TEST_LOCATION_EIGHT = location == 10; 
+    const bool TEST_LOCATION_EIGHT = location == 10;
     location = nplse__gatherSlots(&testDB, 22);
     nplse__markSlots(&testDB.occupied, location, 22);
     const bool TEST_LOCATION_DEEP = location == 10+24+39;
@@ -948,7 +953,7 @@ constexpr unsigned nplse__testSlots()
          | (TEST_ALL_FLAGS_SET<< 6)
          ;
 }
-static constexpr unsigned resSlots = nplse__testSlots();
+constexpr unsigned resSlots = nplse__testSlots();
 
 static_assert(resSlots&    1, "couldn't gather 0 slots");
 static_assert(resSlots&    2, "slots were not correctly marked as 'occupied'");
@@ -990,7 +995,7 @@ constexpr unsigned nplse__testSkiplist()
     const nplse__skipnode *first  = nplse__findSkipnode(&testDB, 111);
     const nplse__skipnode *second = nplse__findSkipnode(&testDB, 333);
     const nplse__skipnode *third  = nplse__findSkipnode(&testDB, 222);
-    const bool TEST_NODES_FOUND =   first && second && third
+    const bool TEST_NODES_FOUND =  first && second && third
                                 && first->filepos==0 && second->filepos==1 && third->filepos==2;
     // add node to end:
     nplse__insertNewSkipnode(&testDB, 444, 3);
@@ -1194,7 +1199,7 @@ constexpr unsigned nplse__testDBOps()
          | (TEST_DOUBLE_PUT_SHOULD_FAIL << 20)
          ;
 }
-static constexpr unsigned resTestOps = nplse__testDBOps();
+constexpr unsigned resTestOps = nplse__testDBOps();
 
 static_assert(resTestOps&     1 , "nplse_put() failed");
 static_assert(resTestOps&(1<< 1), "the fakeFile did not contain correct data after nplse_put()");
@@ -1220,6 +1225,7 @@ static_assert(resTestOps&(1<<20), "nplse_put()ing the same key twice should prod
 
 constexpr unsigned nplse__testDBput()
 {
+    // 25*256 == 6400
     unsigned char testBuffer[25*256] = {0};
     unsigned char fakeFile[(25*256)+(25*256)+(25*256)] = {0};
     nplse__skipnode testNodes[3];
@@ -1272,24 +1278,24 @@ constexpr unsigned nplse__testDBput()
     
     unsigned char key[6] = {0};
     makeKey(key, 12345678);
-    unsigned char val[6400] = {0};
-    for (int i=0; i<6400; ++i)
+    unsigned char val[6144] = {0};
+    for (int i=0; i<6144; ++i)
         val[i] = '.';
     
-    const bool TEST_PUT_SUCCESS_01 = nplse_put(&anotherTestDB, key, 6, val, 6400) == 0;
+    const bool TEST_PUT_SUCCESS_01 = nplse_put(&anotherTestDB, key, 6, val, 6144) == 0;
     unsigned char *res01 = nplse_get(&anotherTestDB, key, 6, nullptr);
     const bool TEST_GET_SUCCESS_01 = res01 != nullptr;
     
     makeKey(key, 87654321);
     
-    const bool TEST_PUT_SUCCESS_02 = nplse_put(&anotherTestDB, key, 6, val, 6400) == 0;
+    const bool TEST_PUT_SUCCESS_02 = nplse_put(&anotherTestDB, key, 6, val, 6144) == 0;
     unsigned char *res02 = nplse_get(&anotherTestDB, key, 6, nullptr);
     const bool TEST_GET_SUCCESS_02 = res02 != nullptr;
     
     makeKey(key, 12343210);
     val[0] = 'a'; val[6143] = 'z';
  
-    const bool TEST_PUT_SUCCESS_03 = nplse_put(&anotherTestDB, key, 6, val, 6400) == 0;
+    const bool TEST_PUT_SUCCESS_03 = nplse_put(&anotherTestDB, key, 6, val, 6144) == 0;
     unsigned char *res03 = nplse_get(&anotherTestDB, key, 6, nullptr);
     const bool TEST_GET_SUCCESS_03 = res03 != nullptr;
     
@@ -1314,7 +1320,7 @@ static_assert(resTestPut&  4, "did not put key (2)");
 static_assert(resTestPut&  8, "did not get key (2)");
 static_assert(resTestPut& 16, "did not put key (3)");
 static_assert(resTestPut& 32, "did not get key (3)");
-static_assert(resTestPut& 63, "res03 values incorrect");
+static_assert(resTestPut& 64, "res03 values incorrect");
 
 #endif // !defined(DISABLE_TESTS)
 
