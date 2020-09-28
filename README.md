@@ -30,6 +30,7 @@ DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
   - [Compile-time testing](#compile-time-tests)
 - [Using](#using)
   - [Visualization using Javascript](#javascript-visualization)
+  -[Known issues](#known-issues)
 - [Contributing](#contributing)
 - [Similar projects](#similar-projects)
 
@@ -69,6 +70,10 @@ The database can also be operated entirely during compile time, providing you wi
 
 #### Javascript visualization
 *algo-visualize.js* is provided and can be run on algorithm-visualizer.org to show the mechanism of the underlying algorithm. 
+
+#### Known issues
+During alpha there are still some issues we are working on. Documented issues:
+'nplse_put()' may call 'nplse__write()' with uninitialized data 
 
 ## Contributing
 I hope the code is somewhat readable and not too much of a mess. Either way contributions are very welcome, feel free to msg me or issue a request!

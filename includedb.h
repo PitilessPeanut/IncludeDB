@@ -65,9 +65,9 @@ typedef int (*pnplse__bitvecAlloc)(struct nplse__bitvec *bitvec, int amount);
 
 typedef struct nplse__bitvec
 {
-    CTOR3(nplse__bitvec() : bitvec(nullptr), szVec(0), nplse__bitvecAlloc(nullptr) {})
+    CTOR3(nplse__bitvec() : bitvec(nullptr), szVecIn32Chunks(0), nplse__bitvecAlloc(nullptr) {})
     unsigned *bitvec;
-    int szVec;
+    int szVecIn32Chunks;
     pnplse__bitvecAlloc nplse__bitvecAlloc;
 } nplse__bitvec;
 
@@ -248,6 +248,7 @@ static const char *nplse_getError(nanopulseDB *instance);
   #include <stdlib.h>
   #define nplse__malloc(sz)          malloc(sz)
   #define nplse__realloc(p,newsz)    realloc(p,newsz)
+  #define nplse__zeroalloc(cnt,sz)   calloc(cnt,sz)
   #define nplse__free(p)             free(p)
 #endif
 
@@ -346,10 +347,14 @@ static constexpr unsigned nplse__xx32(const unsigned char *input, int len, unsig
 
 static int nplse__bitvecAlloc(nplse__bitvec *bitvec, int amount)
 {
-    bitvec->szVec += amount; // alloc 32bit! sizeof(unsigned)
-    unsigned *tmp = (unsigned *)nplse__realloc(bitvec->bitvec, bitvec->szVec * sizeof(unsigned));
+    const int szOld = bitvec->szVecIn32Chunks;
+    bitvec->szVecIn32Chunks += amount;
+    unsigned *tmp = (unsigned *)nplse__zeroalloc(bitvec->szVecIn32Chunks, sizeof(unsigned));
     if (!tmp)
         return 1; // 1 is error
+    for (int i=0; i<szOld; ++i)
+        tmp[i] = bitvec->bitvec[i];
+    nplse__free(bitvec->bitvec);
     bitvec->bitvec = tmp;
     return 0;
 }
@@ -371,7 +376,7 @@ inline constexpr int nplse__gatherSlots(nanopulseDB *instance, int requiredSlots
     bool haveAvail = false;
     int location = 0;
     nplse__bitvec *bitvec = &instance->occupied;
-    for (; location<((bitvec->szVec*32)-requiredSlots) && !haveAvail; ++location)
+    for (; location<((bitvec->szVecIn32Chunks*32)-requiredSlots) && !haveAvail; ++location)
         if (nplse__bitvecCheck(bitvec, location) == 0)
         {
             haveAvail = true;
@@ -760,14 +765,15 @@ static nanopulseDB *nplse_open(const char *filename)
     // Read fn:
     newInstance->nplse__read = nplse__dbRead;
     // setup bitvec:
-    newInstance->occupied.bitvec = (unsigned *)nplse__malloc(sizeof(unsigned) * 8);
-    newInstance->occupied.szVec = 1;
+    newInstance->occupied.bitvec = (unsigned *)nplse__zeroalloc(1, sizeof(unsigned));
+    newInstance->occupied.szVecIn32Chunks = 1;
     newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
     // setup node list:
     newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 1); // todo test *8 !
     
     
     // todo: init heads
+    newInstance->headD = 0;
     
     
     newInstance->nKeys = 0;
@@ -785,7 +791,7 @@ static nanopulseDB *nplse_open(const char *filename)
     
     // Build index:
     COMPTIME int dbHeaderSize = 128;
-    int offset = 0, slotLocation = 0;
+    int offset = 0;
     unsigned char buf[20];
     for (int i=0; i<nKeys; ++i)
     {
@@ -803,8 +809,8 @@ static nanopulseDB *nplse_open(const char *filename)
                                      + vallen
                                      + 1;
         const int requiredSlots = (requiredSizeInByte/newInstance->chunkSize) + 1;
+        const int slotLocation = nplse__gatherSlots(newInstance, requiredSlots);
         nplse__markSlots(&newInstance->occupied, slotLocation, requiredSlots);
-        slotLocation += requiredSlots;
         offset += newInstance->chunkSize * requiredSlots;
     }
     
@@ -902,12 +908,12 @@ constexpr unsigned nplse__testSlots()
                       };
     unsigned bitvecBits[3/* *32 */] = {0};
     testDB.occupied.bitvec = bitvecBits;
-    testDB.occupied.szVec  = 1;
+    testDB.occupied.szVecIn32Chunks  = 1;
     auto testAlloc = [](nplse__bitvec *bitvec, int amount)->int
                      {
-                         if ((bitvec->szVec+amount) <= 3)
+                         if ((bitvec->szVecIn32Chunks+amount) <= 3)
                          {
-                             bitvec->szVec += amount;
+                             bitvec->szVecIn32Chunks += amount;
                              return 0;
                          }
                          return 1;
@@ -1060,12 +1066,12 @@ constexpr unsigned nplse__testDBOps()
     testDB.nplse__read = testRead;
     unsigned bitvecBits[4/* *32 */] = {0};
     testDB.occupied.bitvec = bitvecBits;
-    testDB.occupied.szVec  = 1;
+    testDB.occupied.szVecIn32Chunks = 1;
     auto testAlloc = [](nplse__bitvec *bitvec, int amount)->int
                      {
-                         if ((bitvec->szVec+amount) <= 4)
+                         if ((bitvec->szVecIn32Chunks + amount) <= 4)
                          {
-                             bitvec->szVec += amount;
+                             bitvec->szVecIn32Chunks += amount;
                              return 0;
                          }
                          return 1;
@@ -1254,12 +1260,12 @@ constexpr unsigned nplse__testDBput()
     anotherTestDB.nplse__read = testRead;
     unsigned bitvecBits[3/* *32 */] = {0};
     anotherTestDB.occupied.bitvec = bitvecBits;
-    anotherTestDB.occupied.szVec  = 1;
+    anotherTestDB.occupied.szVecIn32Chunks = 1;
     auto testAlloc = [](nplse__bitvec *bitvec, int amount)->int
                      {
-                         if ((bitvec->szVec+amount) <= 3)
+                         if ((bitvec->szVecIn32Chunks + amount) <= 3)
                          {
-                             bitvec->szVec += amount;
+                             bitvec->szVecIn32Chunks += amount;
                              return 0;
                          }
                          return 1;
