@@ -59,6 +59,9 @@
 #endif
 
 
+typedef size_t nplse__size;
+
+
 struct nplse__bitvec;
 
 typedef int (*pnplse__bitvecAlloc)(struct nplse__bitvec *bitvec, int amount);
@@ -184,8 +187,8 @@ typedef struct nanopulseDB
     nplse__skipnode *nodeVec;
     int headA, headB, headC, headD;
     int nKeys;
-    //int nodeVecLen = 32;
-    //int addressNewNode = 0;
+    int nAllocated;
+    //int addressNewNode = 0; // todo
     int globalVisits;
     int cursor;
     
@@ -407,6 +410,7 @@ inline constexpr void nplse__markSlots(nplse__bitvec *bitvec, int start, int len
 
 inline constexpr int nplse__getNewKeyPos(nanopulseDB *instance)
 {
+    
     return instance->nKeys++;
 }
 
@@ -769,8 +773,8 @@ static nanopulseDB *nplse_open(const char *filename)
     newInstance->occupied.szVecIn32Chunks = 1;
     newInstance->occupied.nplse__bitvecAlloc = nplse__bitvecAlloc;
     // setup node list:
-    newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * 32 * 1); // todo test *8 !
-    
+    newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * sizeof(unsigned) * 8);
+    newInstance->nAllocated = sizeof(unsigned) * 8;
     
     // todo: init heads
     newInstance->headD = 0;

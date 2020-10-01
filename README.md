@@ -30,7 +30,7 @@ DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
   - [Compile-time testing](#compile-time-tests)
 - [Using](#using)
   - [Visualization using Javascript](#javascript-visualization)
-  -[Known issues](#known-issues)
+  - [Known issues](#known-issues)
 - [Contributing](#contributing)
 - [Similar projects](#similar-projects)
 
