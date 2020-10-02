@@ -150,17 +150,20 @@ struct nanopulseDB;
 typedef int (*pnplse__write)(struct nanopulseDB *instance, int location, int amount);
 typedef int (*pnplse__read)(struct nanopulseDB *instance, int location, int amount);
 
+typedef int (*pnplse__nodevecAlloc)(struct nanopulseDB *instance, int newSize);
+
+COMPTIME int szBloommap = sizeof(unsigned) * 8;
+
 enum nplse__errorCodes
 {
     NPLSE__OK,
     NPLSE__BITVEC_ALLOC,
+    NPLSE__NODE_ALLOC,
     NPLSE__SLOTS_ALLOC,
     NPLSE__BUFFER_ALLOC,
     NPLSE__ALREADY_KEY,
     NPLSE__KEY_NOT_FOUND
 };
-
-COMPTIME int szBloommap = sizeof(unsigned) * 8;
 
 typedef struct nanopulseDB
 {
@@ -188,6 +191,7 @@ typedef struct nanopulseDB
     int headA, headB, headC, headD;
     int nKeys;
     int nAllocated;
+    pnplse__nodevecAlloc nplse__nodevecAlloc;
     //int addressNewNode = 0; // todo
     int globalVisits;
     int cursor;
@@ -408,9 +412,27 @@ inline constexpr void nplse__markSlots(nplse__bitvec *bitvec, int start, int len
         nplse__bitvecSet(bitvec, start+i);
 }
 
-inline constexpr int nplse__getNewKeyPos(nanopulseDB *instance)
+static int nplse__nodevecAlloc(nanopulseDB *instance, int newSize)
 {
-    
+    nplse__skipnode *tmp = (nplse__skipnode *)nplse__realloc(instance->nodeVec, newSize * sizeof(nplse__skipnode));
+    if (!tmp)
+        return 1; // error
+    instance->nodeVec = tmp;
+    return 0;
+}
+
+static constexpr int nplse__getNewKeyPos(nanopulseDB *instance)
+{
+    if (instance->nKeys == instance->nAllocated)
+    {
+        const int newSize = instance->nAllocated << 1;
+        if (instance->nplse__nodevecAlloc(instance, newSize) == 1)
+        {
+            instance->ec = NPLSE__NODE_ALLOC;
+            return instance->nKeys;
+        }
+        instance->nAllocated = newSize;
+    }
     return instance->nKeys++;
 }
 
@@ -441,7 +463,7 @@ static constexpr void nplse__insertSkipnode(nanopulseDB *instance, unsigned key,
     instance->nodeVec[current].next = pos;
 }
 
-inline constexpr void nplse__insertNewSkipnode(nanopulseDB *instance, unsigned key, int filepos)
+static constexpr void nplse__insertNewSkipnode(nanopulseDB *instance, unsigned key, int filepos)
 {
     const int newNodeAddr = nplse__getNewKeyPos(instance);
     instance->nodeVec[newNodeAddr].nodeid  = key;
@@ -775,6 +797,7 @@ static nanopulseDB *nplse_open(const char *filename)
     // setup node list:
     newInstance->nodeVec = (nplse__skipnode *)nplse__malloc(sizeof(nplse__skipnode) * sizeof(unsigned) * 8);
     newInstance->nAllocated = sizeof(unsigned) * 8;
+    newInstance->nplse__nodevecAlloc = nplse__nodevecAlloc;
     
     // todo: init heads
     newInstance->headD = 0;
@@ -853,8 +876,11 @@ static const char *nplse_getError(nanopulseDB *instance)
         case NPLSE__BITVEC_ALLOC:
             nplse__errorMsg = "Couldn't grow bitvec. Out of mem?";
             break;
+        case NPLSE__NODE_ALLOC:
+            nplse__errorMsg = "Couldn't grow nodeVec. Out of mem?";
+            break;
         case NPLSE__BUFFER_ALLOC:
-            nplse__errorMsg = "nplse__dbRead(): failed to realloc buffer";
+            nplse__errorMsg = "nplse__dbRead(): failed to alloc bigger buffer";
             break;
         case NPLSE__ALREADY_KEY:
             nplse__errorMsg = "key already exists";
@@ -981,6 +1007,12 @@ constexpr unsigned nplse__testSkiplist()
     nanopulseDB testDB{ .mappedArray=nullptr,
                         .chunkSize=0,
                         .nodeVec=testNodes,
+                        .nplse__nodevecAlloc=[](nanopulseDB *instance, int newSize)->int
+                                             {
+                                                 (void)instance;
+                                                 (void)newSize;
+                                                 return 0;
+                                             },
                         .seed=0
                       };
     // start testing:
@@ -1050,6 +1082,12 @@ constexpr unsigned nplse__testDBOps()
                         .mappedArray=fakeFile,
                         .chunkSize=64,
                         .nodeVec=testNodes,
+                        .nplse__nodevecAlloc=[](nanopulseDB *instance, int newSize)->int
+                                             {
+                                                 (void)instance;
+                                                 (void)newSize;
+                                                 return 0;
+                                             },
                         .seed=6969
                        };
     auto testWrite = [](nanopulseDB *instance, int location, int amount)->int
@@ -1071,16 +1109,15 @@ constexpr unsigned nplse__testDBOps()
     unsigned bitvecBits[4/* *32 */] = {0};
     testDB.occupied.bitvec = bitvecBits;
     testDB.occupied.szVecIn32Chunks = 1;
-    auto testAlloc = [](nplse__bitvec *bitvec, int amount)->int
-                     {
-                         if ((bitvec->szVecIn32Chunks + amount) <= 4)
-                         {
-                             bitvec->szVecIn32Chunks += amount;
-                             return 0;
-                         }
-                         return 1;
-                     };
-    testDB.occupied.nplse__bitvecAlloc = testAlloc;
+    testDB.occupied.nplse__bitvecAlloc = [](nplse__bitvec *bitvec, int amount)->int
+                                         {
+                                             if ((bitvec->szVecIn32Chunks + amount) <= 4)
+                                             {
+                                                 bitvec->szVecIn32Chunks += amount;
+                                                 return 0;
+                                             }
+                                             return 1;
+                                         };
     // put:
     unsigned char keyA[6] = "hello";
     unsigned char valA[55] = "wurld 1111111111222222222233333333334444444444abcdef.,";
@@ -1244,6 +1281,12 @@ constexpr unsigned nplse__testDBput()
                                .mappedArray=fakeFile,
                                .chunkSize=256,
                                .nodeVec=testNodes,
+                               .nplse__nodevecAlloc=[](nanopulseDB *instance, int newSize)->int
+                                                    {
+                                                        (void)instance;
+                                                        (void)newSize;
+                                                        return 0;
+                                                    },
                                .seed=4242
                              };
     auto testWrite = [](nanopulseDB *instance, int location, int amount)->int
