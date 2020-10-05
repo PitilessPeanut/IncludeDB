@@ -91,11 +91,18 @@ bool nplse__fileOpen(struct nplse__file *file, const char *filename);
 bool nplse__fileCreate(struct nplse__file *file, const char *filename);
 bool nplse__fileClose(struct nplse__file *file);
 int  nplse__fileWrite(struct nplse__file *file, const unsigned char *bytes, int len, int filepos);
+void nplse__fileRead(struct nplse__file *file, unsigned char *bytes, int len, int filepos);
 bool nplse__fileGrow(struct nplse__file *file, int len);
 
-#define NANOPULSE_USE_STD_FILE_OPS
+#if defined(_WIN32) && !defined(INCLUDEDB_USE_STD_FILE_OPS)
+  #include <winbase.h>
+  #define INCLUDEDB_USE_STD_FILE_OPS
+#else
+  #include <sys/mman.h>
+  #define INCLUDEDB_USE_STD_FILE_OPS
+#endif
 
-#if defined(NANOPULSE_USE_STD_FILE_OPS)
+#if defined(INCLUDEDB_USE_STD_FILE_OPS)
   #include <stdio.h>
   typedef struct nplse__file
   {
@@ -134,11 +141,7 @@ bool nplse__fileGrow(struct nplse__file *file, int len);
       return true;
   }
 #else
-  #if defined(_WIN32)
-    #include <winbase.h>
-  #else
-    #include <sys/mman.h>
-  #endif
+
 #endif
 
 #if !defined(NANOPULSE_CHUNK_SIZE)
@@ -701,7 +704,7 @@ static constexpr unsigned char *nplse_curGet(nanopulseDB *instance, int *keylen)
 
 static nanopulseDB *nplse_open(const char *filename)
 {
-    COMPTIME unsigned char magic[] = "npdb";
+    COMPTIME unsigned char magic[] = "icld";
     COMPTIME unsigned v = NANOPULSE_VERSION_NUM;
     COMPTIME unsigned char versionStr[] = {(v>>24)&0xff, (v>>16)&0xff, (v>>8)&0xff, v&0xff};
     nanopulseDB *newInstance = (nanopulseDB *)nplse__malloc(sizeof(nanopulseDB));
@@ -743,10 +746,10 @@ static nanopulseDB *nplse_open(const char *filename)
     }
     else
     {
-        // read npdb
+        // read icld
         unsigned char buf[24];
         nplse__fileRead(&newInstance->file, buf, 24, 0);
-        bool ok = buf[0]=='n' && buf[1]=='p' && buf[2]=='d' && buf[3]=='b';
+        bool ok = buf[0]=='i' && buf[1]=='c' && buf[2]=='l' && buf[3]=='d';
         if (!ok)
         {
             nplse__errorMsg = "Couldn't open db. File not recognized";
@@ -880,13 +883,13 @@ static const char *nplse_getError(nanopulseDB *instance)
             nplse__errorMsg = "Couldn't grow nodeVec. Out of mem?";
             break;
         case NPLSE__BUFFER_ALLOC:
-            nplse__errorMsg = "nplse__dbRead(): failed to alloc bigger buffer";
+            nplse__errorMsg = "Failed to alloc bigger buffer";
             break;
         case NPLSE__ALREADY_KEY:
-            nplse__errorMsg = "key already exists";
+            nplse__errorMsg = "Key already exists";
             break;
         case NPLSE__SLOTS_ALLOC:
-            nplse__errorMsg = "couldn't allocate more slots. Out of mem?";
+            nplse__errorMsg = "Couldn't allocate more slots. Out of mem?";
             break;
         default:
             nplse__errorMsg = "Ok";
