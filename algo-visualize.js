@@ -63,9 +63,9 @@ const tracerfile = new Array1DTracer('filepos');
 const tracernext = new Array2DTracer('next');
 const tracervis = new Array1DTracer('visits');
 const logger = new LogTracer('Console');
-Layout.setRoot(new VerticalLayout([new HorizontalLayout[tracerids,
-                                                        tracerfile,
-                                                        tracervis]),
+Layout.setRoot(new VerticalLayout([new HorizontalLayout([tracerids,
+                                                         tracerfile,
+                                                         tracervis]),
                                    tracernext,
                                    logger]));
 tracerids.set(ni);
