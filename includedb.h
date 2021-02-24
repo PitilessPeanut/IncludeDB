@@ -87,12 +87,12 @@ typedef struct icldb__skipnode
 
 struct icldb__file;
 
-bool icldb__fileOpen(struct nplse__file *file, const char *filename);
-bool icldb__fileCreate(struct nplse__file *file, const char *filename);
-bool icldb__fileClose(struct nplse__file *file);
-int  icldb__fileWrite(struct nplse__file *file, const unsigned char *bytes, int len, int filepos);
-void icldb__fileRead(struct nplse__file *file, unsigned char *bytes, int len, int filepos);
-bool icldb__fileGrow(struct nplse__file *file, int len);
+bool icldb__fileOpen(struct icldb__file *file, const char *filename);
+bool icldb__fileCreate(struct icldb__file *file, const char *filename);
+bool icldb__fileClose(struct icldb__file *file);
+int  icldb__fileWrite(struct icldb__file *file, const unsigned char *bytes, int len, int filepos);
+void icldb__fileRead(struct icldb__file *file, unsigned char *bytes, int len, int filepos);
+bool icldb__fileGrow(struct icldb__file *file, int len);
 
 #if defined(_WIN32) && !defined(INCLUDEDB_USE_STD_FILE_OPS)
   #include <winbase.h>
@@ -108,31 +108,37 @@ bool icldb__fileGrow(struct nplse__file *file, int len);
   {
       FILE *pFile;
   } icldb__file;
+
   bool icldb__fileOpen(icldb__file *file, const char *filename)
   {
       file->pFile = fopen(filename, "rb+");
       return !!file->pFile;
   }
+
   bool icldb__fileCreate(icldb__file *file, const char *filename)
   {
       file->pFile = fopen(filename, "wb+");
       return !!file->pFile;
   }
+
   bool icldb__fileClose(icldb__file *file)
   {
       return fclose(file->pFile);
   }
+
   int  icldb__fileWrite(icldb__file *file, const unsigned char *bytes, int len, int filepos)
   {
       fseek(file->pFile, filepos, SEEK_SET);
       return fwrite(bytes, sizeof(unsigned char), len, file->pFile);
   }
+
   void icldb__fileRead(icldb__file *file, unsigned char *bytes, int len, int filepos)
   {
       fseek(file->pFile, filepos, SEEK_SET);
       const int r = fread(bytes, sizeof(unsigned char), len, file->pFile);
       (void)r;
   }
+
   bool icldb__fileGrow(icldb__file *file, int len)
   {
       // ¯\_(ツ)_/¯
@@ -148,27 +154,27 @@ bool icldb__fileGrow(struct nplse__file *file, int len);
   #define INCLUDEDB_CHUNK_SIZE 256
 #endif
 
-struct nanopulseDB;
+struct includeDB;
 
-typedef int (*pIcldb__write)(struct nanopulseDB *instance, int location, int amount);
-typedef int (*pIcldb__read)(struct nanopulseDB *instance, int location, int amount);
+typedef int (*pIcldb__write)(struct includeDB *instance, int location, int amount);
+typedef int (*pIcldb__read)(struct includeDB *instance, int location, int amount);
 
-typedef int (*pIcldb__nodevecAlloc)(struct nanopulseDB *instance, int newSize);
+typedef int (*pIcldb__nodevecAlloc)(struct includeDB *instance, int newSize);
 
 COMPTIME int szBloommap = sizeof(unsigned) * 8;
 
 enum icldb__errorCodes
 {
-    NPLSE__OK,
-    NPLSE__BITVEC_ALLOC,
-    NPLSE__NODE_ALLOC,
-    NPLSE__SLOTS_ALLOC,
-    NPLSE__BUFFER_ALLOC,
-    NPLSE__ALREADY_KEY,
-    NPLSE__KEY_NOT_FOUND
+    ICLDB__OK,
+    ICLDB__BITVEC_ALLOC,
+    ICLDB__NODE_ALLOC,
+    ICLDB__SLOTS_ALLOC,
+    ICLDB__BUFFER_ALLOC,
+    ICLDB__ALREADY_KEY,
+    ICLDB__KEY_NOT_FOUND
 };
 
-typedef struct nanopulseDB
+typedef struct includeDB
 {
     // Buffer/Address:
     union
@@ -206,7 +212,7 @@ typedef struct nanopulseDB
     
     // Error code
     enum icldb__errorCodes ec;
-} nanopulseDB;
+} includeDB;
 
 // Error:
 static const char *icldb__errorMsg;
@@ -221,32 +227,32 @@ static const char *icldb__errorMsg;
 */
 
 // Add a new record
-static constexpr int icldb_put(nanopulseDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen);
+static constexpr int icldb_put(includeDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen);
 
 // Get a pointer to an existing record. *vallen contains the size of the returned value in bytes and can be NULL if
 // you are not interested in it. Calling this is going to invalidate previously retuned pointers
-static constexpr unsigned char *icldb_get(nanopulseDB *instance, const unsigned char *key, int keylen, int *vallen);
+static constexpr unsigned char *icldb_get(includeDB *instance, const unsigned char *key, int keylen, int *vallen);
 
 // Delete record at key (TODO)
-//static constexpr void icldb_delete(nanopulseDB *instance, unsigned char *key, int keylen);
+//static constexpr void icldb_delete(includeDB *instance, unsigned char *key, int keylen);
 
 // Upon opening a database a cursor is pointing to the first record. Use this to move the cursor to the next record
-static constexpr void icldb_next(nanopulseDB *instance);
+static constexpr void icldb_next(includeDB *instance);
 
-// Get the key at cursor position. Optionally the size of the key can be stored in *keylen. Pass NULL if this is not needed
-static constexpr unsigned char *icldb_curGet(nanopulseDB *instance, int *keylen);
+// Get the key at cursor position. Optionally the size of the key can be stored in *keylen. Pass NULL if this (<-todo what?) is not needed
+static constexpr unsigned char *icldb_curGet(includeDB *instance, int *keylen);
 
 // Open existing, or create new
-static nanopulseDB *icldb_open(const char *filename);
+static includeDB *icldb_open(const char *filename);
 
 // Close. Must be called to ensure all changes are written to disk
-static void icldb_close(nanopulseDB *instance);
+static void icldb_close(includeDB *instance);
 
-// Reset all key priorities (todo)
-static void icldb_resetPriorities(nanopulseDB *instance) {}
+// Reset all key priorities
+static void icldb_resetPriorities(includeDB *instance);
 
 // Get error
-static const char *icldb_getError(nanopulseDB *instance);
+static const char *icldb_getError(includeDB *instance);
 
 
 
@@ -269,17 +275,17 @@ static const char *icldb_getError(nanopulseDB *instance);
   #include <time.h>
 #endif
 
-inline constexpr void icldb__bloomPut(nanopulseDB *instance)
+inline constexpr void icldb__bloomPut(includeDB *instance)
 {
     (void)instance;
 }
 
-inline constexpr void icldb__bloomRemove(nanopulseDB *instance)
+inline constexpr void icldb__bloomRemove(includeDB *instance)
 {
     (void)instance;
 }
 
-inline constexpr bool icldb__bloomMaybeHave(const nanopulseDB *instance, const unsigned hash)
+inline constexpr bool icldb__bloomMaybeHave(const includeDB *instance, const unsigned hash)
 {
     const unsigned h = hash & 0xffffffff;
     return true; // !((h & instance->bloommap) ^ h);
@@ -384,7 +390,7 @@ inline constexpr void icldb__bitvecSet(icldb__bitvec *bitvec, int pos)
     bitvec->bitvec[pos>>5] |= bit;
 }
 
-inline constexpr int icldb__gatherSlots(nanopulseDB *instance, int requiredSlots)
+inline constexpr int icldb__gatherSlots(includeDB *instance, int requiredSlots)
 {
     bool haveAvail = false;
     int location = 0;
@@ -403,7 +409,7 @@ inline constexpr int icldb__gatherSlots(nanopulseDB *instance, int requiredSlots
         const int amount = (requiredSlots/32) + 1;
         if (bitvec->icldb__bitvecAlloc(bitvec, amount))
         {
-            instance->ec = NPLSE__BITVEC_ALLOC;
+            instance->ec = ICLDB__BITVEC_ALLOC;
             return -1; // failed
         }
         // todo : grow file 32*chunksz
@@ -418,7 +424,7 @@ inline constexpr void icldb__markSlots(icldb__bitvec *bitvec, int start, int len
         icldb__bitvecSet(bitvec, start+i);
 }
 
-static int icldb__nodevecAlloc(nanopulseDB *instance, int newSize)
+static int icldb__nodevecAlloc(includeDB *instance, int newSize)
 {
     icldb__skipnode *tmp = (icldb__skipnode *)icldb__realloc(instance->nodeVec, newSize * sizeof(icldb__skipnode));
     if (!tmp)
@@ -427,14 +433,14 @@ static int icldb__nodevecAlloc(nanopulseDB *instance, int newSize)
     return 0;
 }
 
-static constexpr int icldb__getNewKeyPos(nanopulseDB *instance)
+static constexpr int icldb__getNewKeyPos(includeDB *instance)
 {
     if (instance->nKeys == instance->nAllocated)
     {
         const int newSize = instance->nAllocated << 1;
         if (instance->icldb__nodevecAlloc(instance, newSize) == 1)
         {
-            instance->ec = NPLSE__NODE_ALLOC;
+            instance->ec = ICLDB__NODE_ALLOC;
             return instance->nKeys;
         }
         instance->nAllocated = newSize;
@@ -442,7 +448,7 @@ static constexpr int icldb__getNewKeyPos(nanopulseDB *instance)
     return instance->nKeys++;
 }
 
-static constexpr void icldb__insertSkipnode(nanopulseDB *instance, unsigned key, int pos, int layer)
+static constexpr void icldb__insertSkipnode(includeDB *instance, unsigned key, int pos, int layer)
 {
     // special case: key smaller than any before:
     if (key < instance->nodeVec[instance->headD].nodeid)
@@ -469,7 +475,7 @@ static constexpr void icldb__insertSkipnode(nanopulseDB *instance, unsigned key,
     instance->nodeVec[current].next = pos;
 }
 
-static constexpr void icldb__insertNewSkipnode(nanopulseDB *instance, unsigned key, int filepos)
+static constexpr void icldb__insertNewSkipnode(includeDB *instance, unsigned key, int filepos)
 {
     const int newNodeAddr = icldb__getNewKeyPos(instance);
     instance->nodeVec[newNodeAddr].nodeid  = key;
@@ -478,7 +484,7 @@ static constexpr void icldb__insertNewSkipnode(nanopulseDB *instance, unsigned k
     icldb__insertSkipnode(instance, key, newNodeAddr, 3);
 }
 
-static constexpr int icldb__findPrevSkipnode(nanopulseDB *instance, const unsigned key, const int start, const int layer)
+static constexpr int icldb__findPrevSkipnode(includeDB *instance, const unsigned key, const int start, const int layer)
 {
     int current = start;
     int prev = current;
@@ -491,7 +497,7 @@ static constexpr int icldb__findPrevSkipnode(nanopulseDB *instance, const unsign
             instance->nodeVec[current].visits += 1;
             instance->globalVisits += 1;
             //if (((instance->nodeVec[current].visits*100) / instance->globalVisits) > 20)
-                //nplse__insertSkipnode(instance, key, current, layer-1);
+                //icldb__insertSkipnode(instance, key, current, layer-1);
             return current;
         }
         else if (instance->nodeVec[current].nodeid >= key)
@@ -502,14 +508,14 @@ static constexpr int icldb__findPrevSkipnode(nanopulseDB *instance, const unsign
     return prev;
 }
 
-inline constexpr icldb__skipnode *icldb__findSkipnode(nanopulseDB *instance, const unsigned key)
+inline constexpr icldb__skipnode *icldb__findSkipnode(includeDB *instance, const unsigned key)
 {
-    //const int res = nplse__findPrevSkipnode(instance, key, instance->headA, 0);
+    //const int res = icldb__findPrevSkipnode(instance, key, instance->headA, 0);
     const int res = icldb__findPrevSkipnode(instance, key, instance->headD, 3);
     return instance->nodeVec[res].nodeid == key ? &instance->nodeVec[res] : nullptr;
 }
 
-static constexpr int icldb__dbBufferResize(nanopulseDB *instance, int newsize)
+static constexpr int icldb__dbBufferResize(includeDB *instance, int newsize)
 {
     const int sz = instance->szBuf;
     if (sz < newsize)
@@ -518,7 +524,7 @@ static constexpr int icldb__dbBufferResize(nanopulseDB *instance, int newsize)
         unsigned char *tmp = (unsigned char *)icldb__realloc(instance->buffer, instance->szBuf);
         if (!tmp)
         {
-            instance->ec = NPLSE__BUFFER_ALLOC;
+            instance->ec = ICLDB__BUFFER_ALLOC;
             return 1;
         }
         instance->buffer = tmp;
@@ -526,14 +532,14 @@ static constexpr int icldb__dbBufferResize(nanopulseDB *instance, int newsize)
     return 0; // Ok
 }
 
-static int icldb__dbWrite(nanopulseDB *instance, int location, int amount)
+static int icldb__dbWrite(includeDB *instance, int location, int amount)
 {
     location += 128; // db header size
     const int res = icldb__fileWrite(&instance->file, instance->buffer, amount, location);
     return res != amount;
 }
 
-static int icldb__dbRead(nanopulseDB *instance, int location, int amount)
+static int icldb__dbRead(includeDB *instance, int location, int amount)
 {
     location += 128;
     
@@ -545,14 +551,14 @@ static int icldb__dbRead(nanopulseDB *instance, int location, int amount)
     return 0;
 }
 
-static constexpr int icldb__dbAddressResize(nanopulseDB *instance, int newsize)
+static constexpr int icldb__dbAddressResize(includeDB *instance, int newsize)
 {
     (void)instance;
     (void)newsize;
     return 0; // Ok
 }
 
-static int icldb__dbAddressWrite(nanopulseDB *instance, int location, int amount)
+static int icldb__dbAddressWrite(includeDB *instance, int location, int amount)
 {
     //todo
     (void)instance;
@@ -561,7 +567,7 @@ static int icldb__dbAddressWrite(nanopulseDB *instance, int location, int amount
     return 0;
 }
 
-static int icldb__dbAddressRead(nanopulseDB *instance, int location, int amount)
+static int icldb__dbAddressRead(includeDB *instance, int location, int amount)
 {
     // todo
     (void)instance;
@@ -578,20 +584,18 @@ COMPTIME int icldb__header_recordPriorityLen = 4;
 
 
 
+/*
+ ------------------------------------------------------------------------------
+    Public functions
+ ------------------------------------------------------------------------------
+*/
 
-
-
-
-
-
-
-
-static constexpr int icldb_put(nanopulseDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen)
+static constexpr int icldb_put(includeDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen)
 {
     const unsigned keyhash = icldb__xx32(key, keylen, instance->seed);
     if (icldb_get(instance, key, keylen, nullptr))
     {
-        instance->ec = NPLSE__ALREADY_KEY;
+        instance->ec = ICLDB__ALREADY_KEY;
         return 1;
     };
     const int chunkSize = instance->chunkSize;
@@ -607,7 +611,7 @@ static constexpr int icldb_put(nanopulseDB *instance, const unsigned char *key, 
     const int location = icldb__gatherSlots(instance, requiredSlots);
     if (location == -1)
     {
-        instance->ec = NPLSE__SLOTS_ALLOC;
+        instance->ec = ICLDB__SLOTS_ALLOC;
         return 1;
     }
     icldb__markSlots(&instance->occupied, location, requiredSlots);
@@ -629,23 +633,26 @@ static constexpr int icldb_put(nanopulseDB *instance, const unsigned char *key, 
     data[ 9] = (vallen>>16) & 0xff;
     data[10] = (vallen>> 8) & 0xff;
     data[11] = (vallen    ) & 0xff;
-    // priority is 0 for a new record:
-    data[12] = 0; // todo the 'priority' field can be reused for a tombstone
+    // Priority field is little endian and initialized to 1 for a new record.
+    // If 0 then it is a tombstone marked for overwrite:
+    data[12] = 0;
     data[13] = 0;
     data[14] = 0;
-    data[15] = 0;
+    data[15] = 1;
     data += 16;
     // key first:
     for (int i=0; i<keylen; ++i, data++)
         *data = key[i];
+    // then data:
     for (int i=0; i<vallen; ++i, data++)
         *data = val[i];
+    // then write:
     return instance->icldb__write(instance, location*chunkSize, requiredSizeOfRecord);
 }
 
-static constexpr unsigned char *icldb_get(nanopulseDB *instance, const unsigned char *key, int keylen, int *vallen)
+static constexpr unsigned char *icldb_get(includeDB *instance, const unsigned char *key, int keylen, int *vallen)
 {
-    instance->ec = NPLSE__KEY_NOT_FOUND;
+    instance->ec = ICLDB__KEY_NOT_FOUND;
     const unsigned keyhash = icldb__xx32(key, keylen, instance->seed);
     if (icldb__bloomMaybeHave(instance, keyhash) == false)
         return nullptr;
@@ -670,22 +677,22 @@ static constexpr unsigned char *icldb_get(nanopulseDB *instance, const unsigned 
         int unusedVallen = 0; // In case vallen == nullptr
         vallen = vallen ? : &unusedVallen;
         *vallen = vl;
-        instance->ec = NPLSE__OK;
+        instance->ec = ICLDB__OK;
         return instance->buffer;
     }
     return nullptr;
 }
 
-//static constexpr void icldb_delete(nanopulseDB *instance, unsigned char *key, int keylen)
+//static constexpr void icldb_delete(includeDB *instance, unsigned char *key, int keylen)
 //{
 //}
 
-static constexpr void icldb_next(nanopulseDB *instance)
+static constexpr void icldb_next(includeDB *instance)
 {
     instance->cursor += 1;
 }
 
-static constexpr unsigned char *icldb_curGet(nanopulseDB *instance, int *keylen)
+static constexpr unsigned char *icldb_curGet(includeDB *instance, int *keylen)
 {
     *keylen = 0;
     if (instance->cursor == instance->nKeys)
@@ -705,12 +712,12 @@ static constexpr unsigned char *icldb_curGet(nanopulseDB *instance, int *keylen)
     return instance->buffer;
 }
 
-static nanopulseDB *icldb_open(const char *filename)
+static includeDB *icldb_open(const char *filename)
 {
     COMPTIME unsigned char magic[] = "icld";
     COMPTIME unsigned v = INCLUDEDB_VERSION_NUM;
     COMPTIME unsigned char versionStr[] = {(v>>24)&0xff, (v>>16)&0xff, (v>>8)&0xff, v&0xff};
-    nanopulseDB *newInstance = (nanopulseDB *)icldb__malloc(sizeof(nanopulseDB));
+    includeDB *newInstance = (includeDB *)icldb__malloc(sizeof(includeDB));
     if (!newInstance)
     {
         icldb__errorMsg = "Couldn't alloc db. Out of mem?";
@@ -742,7 +749,7 @@ static nanopulseDB *icldb_open(const char *filename)
         icldb__fileWrite(&newInstance->file, keysNvisits, 8, 12);
         newInstance->globalVisits = 0;
         // create seed
-        const unsigned sd = 6969; // todo
+        const unsigned sd = 6969; // todo get from time
         const unsigned char seedStr[] = {(sd>>24)&0xff, (sd>>16)&0xff, (sd>>8)&0xff, sd&0xff};
         icldb__fileWrite(&newInstance->file, seedStr, 4, 20);
         newInstance->seed = sd;
@@ -817,7 +824,7 @@ static nanopulseDB *icldb_open(const char *filename)
     for (int i=0; i<szBloommap; ++i)
         newInstance->bloomcounters[i] = 0;
     // reset error
-    newInstance->ec = NPLSE__OK;
+    newInstance->ec = ICLDB__OK;
     
     
     printf("num ky %d \n", nKeys);
@@ -850,7 +857,7 @@ static nanopulseDB *icldb_open(const char *filename)
     return newInstance;
 }
 
-static void icldb_close(nanopulseDB *instance)
+static void icldb_close(includeDB *instance)
 {
     if (instance == nullptr)
         return;
@@ -873,25 +880,30 @@ static void icldb_close(nanopulseDB *instance)
     icldb__free(instance);
 }
 
-static const char *icldb_getError(nanopulseDB *instance)
+static void icldb_resetPriorities(includeDB *instance)
+{
+    // make sure 'tombstone' priorities are NOT reset!
+}
+
+static const char *icldb_getError(includeDB *instance)
 {
     if (!instance)
         return icldb__errorMsg;
     switch (instance->ec)
     {
-        case NPLSE__BITVEC_ALLOC:
+        case ICLDB__BITVEC_ALLOC:
             icldb__errorMsg = "Couldn't grow bitvec. Out of mem?";
             break;
-        case NPLSE__NODE_ALLOC:
+        case ICLDB__NODE_ALLOC:
             icldb__errorMsg = "Couldn't grow nodeVec. Out of mem?";
             break;
-        case NPLSE__BUFFER_ALLOC:
+        case ICLDB__BUFFER_ALLOC:
             icldb__errorMsg = "Failed to alloc bigger buffer";
             break;
-        case NPLSE__ALREADY_KEY:
+        case ICLDB__ALREADY_KEY:
             icldb__errorMsg = "Key already exists";
             break;
-        case NPLSE__SLOTS_ALLOC:
+        case ICLDB__SLOTS_ALLOC:
             icldb__errorMsg = "Couldn't allocate more slots. Out of mem?";
             break;
         default:
@@ -939,11 +951,11 @@ static_assert(resBitvec&2, "bit 64 not correct");
 
 constexpr unsigned icldb__testSlots()
 {
-    nanopulseDB testDB{ .mappedArray=nullptr,
-                        .chunkSize=0,
-                        .nodeVec=nullptr,
-                        .seed=0
-                      };
+    includeDB testDB{ .mappedArray=nullptr,
+                      .chunkSize=0,
+                      .nodeVec=nullptr,
+                      .seed=0
+                    };
     unsigned bitvecBits[3/* *32 */] = {0};
     testDB.occupied.bitvec = bitvecBits;
     testDB.occupied.szVecIn32Chunks  = 1;
@@ -999,30 +1011,30 @@ constexpr unsigned icldb__testSlots()
 }
 constexpr unsigned resSlots = icldb__testSlots();
 
-static_assert(resSlots&    1, "couldn't gather 0 slots");
-static_assert(resSlots&    2, "slots were not correctly marked as 'occupied'");
-static_assert(resSlots&    4, "incorrect slot position (2)");
-static_assert(resSlots&    8, "incorrect slot position (3)");
-static_assert(resSlots&   16, "incorrect slot position (8)");
-static_assert(resSlots&   32, "incorrect slot position (8+24+39)");
-static_assert(resSlots&   64, "flags set incorrectly");
+static_assert(resSlots&  1, "couldn't gather 0 slots");
+static_assert(resSlots&  2, "slots were not correctly marked as 'occupied'");
+static_assert(resSlots&  4, "incorrect slot position (2)");
+static_assert(resSlots&  8, "incorrect slot position (3)");
+static_assert(resSlots& 16, "incorrect slot position (8)");
+static_assert(resSlots& 32, "incorrect slot position (8+24+39)");
+static_assert(resSlots& 64, "flags set incorrectly");
 
 
 constexpr unsigned icldb__testSkiplist()
 {
     // setup:
     icldb__skipnode testNodes[32];
-    nanopulseDB testDB{ .mappedArray=nullptr,
-                        .chunkSize=0,
-                        .nodeVec=testNodes,
-                        .icldb__nodevecAlloc=[](nanopulseDB *instance, int newSize)->int
-                                             {
-                                                 (void)instance;
-                                                 (void)newSize;
-                                                 return 0;
-                                             },
-                        .seed=0
-                      };
+    includeDB testDB{ .mappedArray=nullptr,
+                      .chunkSize=0,
+                      .nodeVec=testNodes,
+                      .icldb__nodevecAlloc=[](includeDB *instance, int newSize)->int
+                                           {
+                                               (void)instance;
+                                               (void)newSize;
+                                               return 0;
+                                           },
+                      .seed=0
+                    };
     // start testing:
     icldb__insertNewSkipnode(&testDB, 111, 0);
     const bool TEST_HEAD_IS_ZERO = testDB.headD == 0;
@@ -1076,7 +1088,7 @@ static_assert(resList&  4, "nodes did not sit where they were supposed to");
 static_assert(resList&  8, "nodes not correctly sorted");
 static_assert(resList& 16, "nodes could not be recovered");
 static_assert(resList& 32, "node at end not found");
-static_assert(resList& 64, "nplse__findSkipnode() did not return NULL");
+static_assert(resList& 64, "icldb__findSkipnode() did not return NULL");
 
 
 constexpr unsigned icldb__testDBOps()
@@ -1085,27 +1097,27 @@ constexpr unsigned icldb__testDBOps()
     unsigned char testBuffer[33*64] = {0};
     unsigned char fakeFile[4*32*64] = {0};
     icldb__skipnode testNodes[3*32];
-    nanopulseDB testDB{ .buffer=testBuffer,
-                        .szBuf=sizeof(testBuffer),
-                        .mappedArray=fakeFile,
-                        .chunkSize=64,
-                        .nodeVec=testNodes,
-                        .icldb__nodevecAlloc=[](nanopulseDB *instance, int newSize)->int
-                                             {
-                                                 (void)instance;
-                                                 (void)newSize;
-                                                 return 0;
-                                             },
-                        .seed=6969
-                       };
-    auto testWrite = [](nanopulseDB *instance, int location, int amount)->int
+    includeDB testDB{ .buffer=testBuffer,
+                      .szBuf=sizeof(testBuffer),
+                      .mappedArray=fakeFile,
+                      .chunkSize=64,
+                      .nodeVec=testNodes,
+                      .icldb__nodevecAlloc=[](includeDB *instance, int newSize)->int
+                                           {
+                                               (void)instance;
+                                               (void)newSize;
+                                               return 0;
+                                           },
+                      .seed=6969
+                     };
+    auto testWrite = [](includeDB *instance, int location, int amount)->int
                      {
                          unsigned char *data = &instance->mappedArray[location];
                          for (int i=0; i<amount; ++i)
                              data[i] = instance->buffer[i];
                          return 0; // success
                      };
-    auto testRead = [](nanopulseDB *instance, int location, int amount)
+    auto testRead = [](includeDB *instance, int location, int amount)
                     {
                         unsigned char *data = &instance->mappedArray[location];
                         for (int i=0; i<amount; ++i)
@@ -1228,7 +1240,7 @@ constexpr unsigned icldb__testDBOps()
     const bool TEST_CURSOR_END = (keylen == 0) && (curKey == nullptr);
     // double put
     const bool TEST_DOUBLE_PUT_SHOULD_FAIL =  icldb_put(&testDB, keyB, 5, valB, 5) == 1
-                                           && testDB.ec == NPLSE__ALREADY_KEY;
+                                           && testDB.ec == ICLDB__ALREADY_KEY;
     
     
     return  TEST_PUT_SUCCESS_A
@@ -1256,27 +1268,28 @@ constexpr unsigned icldb__testDBOps()
 }
 constexpr unsigned resTestOps = icldb__testDBOps();
 
-static_assert(resTestOps&     1 , "nplse_put() failed");
-static_assert(resTestOps&(1<< 1), "the fakeFile did not contain correct data after nplse_put()");
-static_assert(resTestOps&(1<< 2), "last two bits were not marked 'occupied' after nplse_put()");
+static_assert(resTestOps&     1 , "icldb_put() failed");
+static_assert(resTestOps&(1<< 1), "the fakeFile did not contain correct data after icldb_put()");
+static_assert(resTestOps&(1<< 2), "last two bits were not marked 'occupied' after icldb_put()");
 static_assert(resTestOps&(1<< 3), "node incorrect");
-static_assert(resTestOps&(1<< 4), "nplse_get() did not return 'wurld'");
-static_assert(resTestOps&(1<< 5), "nplse_put() failed with 'lexi'");
-static_assert(resTestOps&(1<< 6), "the fakeFile did not contain correct data after another nplse_put()");
+static_assert(resTestOps&(1<< 4), "icldb_get() did not return 'wurld'");
+static_assert(resTestOps&(1<< 5), "icldb_put() failed with 'lexi'");
+static_assert(resTestOps&(1<< 6), "the fakeFile did not contain correct data after another icldb_put()");
 static_assert(resTestOps&(1<< 7), "three slots should now be occupied");
 static_assert(resTestOps&(1<< 8), "second node not correct");
 static_assert(resTestOps&(1<< 9), "second key/val incorrect");
 static_assert(resTestOps&(1<<10), "should be NULL, instead some value was returned!");
-static_assert(resTestOps&(1<<11), "could not nplse_put() all the keys");
-static_assert(resTestOps&(1<<12), "nplse_get() failed to return desired value");
+static_assert(resTestOps&(1<<11), "could not icldb_put() all the keys");
+static_assert(resTestOps&(1<<12), "icldb_get() failed to return desired value");
 static_assert(resTestOps&(1<<13), "at least one value returned did not match the original data");
-static_assert(resTestOps&(1<<14), "could not nplse_put() big value");
+static_assert(resTestOps&(1<<14), "could not icldb_put() big value");
 static_assert(resTestOps&(1<<15), "not all slots marked 'occupied'");
-static_assert(resTestOps&(1<<16), "nplse_get() did not return a large value correctly");
+static_assert(resTestOps&(1<<16), "icldb_get() did not return a large value correctly");
 static_assert(resTestOps&(1<<17), "the key at the cursor position should be the first key");
-static_assert(resTestOps&(1<<18), "incorrect key returned after calling nplse_next()");
+static_assert(resTestOps&(1<<18), "incorrect key returned after calling icldb_next()");
 static_assert(resTestOps&(1<<19), "incorrect key at last cursor position");
-static_assert(resTestOps&(1<<20), "nplse_put()ing the same key twice should produce a NPLSE__ALREADY_KEY error code");
+static_assert(resTestOps&(1<<20), "icldb_put()ing the same key twice should produce a ICLDB__ALREADY_KEY error code");
+
 
 constexpr unsigned icldb__testDBput()
 {
@@ -1284,27 +1297,27 @@ constexpr unsigned icldb__testDBput()
     unsigned char testBuffer[25*256] = {0};
     unsigned char fakeFile[(25*256)+(25*256)+(25*256)] = {0};
     icldb__skipnode testNodes[3];
-    nanopulseDB anotherTestDB{ .buffer=testBuffer,
-                               .szBuf=sizeof(testBuffer),
-                               .mappedArray=fakeFile,
-                               .chunkSize=256,
-                               .nodeVec=testNodes,
-                               .icldb__nodevecAlloc=[](nanopulseDB *instance, int newSize)->int
-                                                    {
-                                                        (void)instance;
-                                                        (void)newSize;
-                                                        return 0;
-                                                    },
-                               .seed=4242
-                             };
-    auto testWrite = [](nanopulseDB *instance, int location, int amount)->int
+    includeDB anotherTestDB{ .buffer=testBuffer,
+                             .szBuf=sizeof(testBuffer),
+                             .mappedArray=fakeFile,
+                             .chunkSize=256,
+                             .nodeVec=testNodes,
+                             .icldb__nodevecAlloc=[](includeDB *instance, int newSize)->int
+                                                  {
+                                                      (void)instance;
+                                                      (void)newSize;
+                                                      return 0;
+                                                  },
+                             .seed=4242
+                           };
+    auto testWrite = [](includeDB *instance, int location, int amount)->int
                      {
                          unsigned char *data = &instance->mappedArray[location];
                          for (int i=0; i<amount; ++i)
                              data[i] = instance->buffer[i];
                          return 0; // success
                      };
-    auto testRead = [](nanopulseDB *instance, int location, int amount)
+    auto testRead = [](includeDB *instance, int location, int amount)
                     {
                         unsigned char *data = &instance->mappedArray[location];
                         for (int i=0; i<amount; ++i)
