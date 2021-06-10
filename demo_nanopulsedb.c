@@ -1,10 +1,13 @@
 #define INCLUDEDB_IMPLEMENTATION
 #include "includedb.h"
 
+#include <string.h>
+//#include <stdlib.h>
+
 int main(void)
 {
     // Create new file or open existing:
-    nanopulseDB *db = nplse_open("hello.dat");
+    includeDB *db = icldb_open("hello.dat");
     if (!db)
     {
         printf("error opening db\n");
@@ -12,17 +15,49 @@ int main(void)
     
     
     // Iterate over all keys:
-    int keylen;
-    unsigned char *curKey = nplse_curGet(db, &keylen);
+    int keylen, vallen;
+    unsigned char *curKey = icldb_curGetKey(db, &keylen);
+    char *key, *record;
     while (curKey)
     {
+        // Copy key to show later:
+        key = (char *)realloc(key, keylen+1);
+        memcpy(key, curKey, keylen);
+        key[keylen] = '\0';
+        
+        const unsigned char *val = icldb_get(db, curKey, keylen, &vallen);
+        
+        // Copy value to display:
+        record = (char *)realloc(record, vallen+1);
+        memcpy(record, val, vallen);
+        record[vallen] = '\0';
     
-    
+        // Show:
+        printf("key: %s, val: %s\n", key, val);
+        
         // Advance cursor:
-        nplse_next(db);
+        icldb_next(db);
+        
+        // Get another key:
+        curKey = icldb_curGetKey(db, &keylen);
+    }
+    free(record);
+    free(key);
+    
+    // Put new record:
+    const unsigned char newkey[] = {'h','e','l','l','o'};
+    const unsigned char newval[] = {'w','o','r','l','d'};
+    if (icldb_put(db, newkey, 5, newval, 5) == 1)
+    {
+        printf("Error: %s \n", icldb_getError(db));
     }
     
-    
     // Done:
-    nplse_close(db);
+    icldb_close(db);
 }
+
+/*
+ todo:
+ static constexpr unsigned char *icldb_get(includeDB *instance, const unsigned char *key, int keylen, int *vallen);
+
+ */

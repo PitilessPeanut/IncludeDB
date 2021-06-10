@@ -248,7 +248,7 @@ static const char *icldb__errorMsg;
  ------------------------------------------------------------------------------
 */
 
-// Add a new record
+// Add a new record, returns 1 on fail
 static constexpr int icldb_put(includeDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen);
 
 // Get a pointer to an existing record. *vallen contains the size of the returned value in bytes and can be NULL if
@@ -262,7 +262,7 @@ static constexpr unsigned char *icldb_get(includeDB *instance, const unsigned ch
 static constexpr void icldb_next(includeDB *instance);
 
 // Get the key at cursor position. Optionally the size of the key can be stored in *keylen. Pass NULL if this (<-todo what?) is not needed
-static constexpr unsigned char *icldb_curGet(includeDB *instance, int *keylen);
+static constexpr unsigned char *icldb_curGetKey(includeDB *instance, int *keylen);
 
 // Open existing, or create new
 static includeDB *icldb_open(const char *filename);
@@ -743,7 +743,7 @@ static constexpr void icldb_next(includeDB *instance)
     instance->cursor += 1;
 }
 
-static constexpr unsigned char *icldb_curGet(includeDB *instance, int *keylen)
+static constexpr unsigned char *icldb_curGetKey(includeDB *instance, int *keylen)
 {
     *keylen = 0;
     if (instance->cursor == instance->nKeys)
@@ -1275,28 +1275,28 @@ constexpr unsigned icldb__testDBOps()
     const bool TEST_BIG_VAL = resE && (vallen == 32*64+1) && resE[32*64]=='x' && resE[32*64-1]!='x';
     // check if cursor points to first record:
     int keylen = 0;
-    unsigned char *curKey = icldb_curGet(&testDB, &keylen);
+    unsigned char *curKey = icldb_curGetKey(&testDB, &keylen);
     const bool TEST_KEY_AT_CURSOR =  curKey
                                   && (keylen == 6)
                                   && curKey[0] == 'h'
                                   && curKey[4] == 'o';
     // shift cursor
     icldb_next(&testDB);
-    curKey = icldb_curGet(&testDB, &keylen);
+    curKey = icldb_curGetKey(&testDB, &keylen);
     const bool TEST_KEY_AFTER_CALLING_NEXT =  curKey
                                            && (keylen == 5)
                                            && curKey[0] == 'l'
                                            && curKey[3] == 'i';
     for (int i=0; i<31; ++i)
         icldb_next(&testDB);
-    curKey = icldb_curGet(&testDB, &keylen);
+    curKey = icldb_curGetKey(&testDB, &keylen);
     const bool TEST_LAST_KEY_AFTER_CALLING_NEXT =  curKey
                                                 && (keylen == 18)
                                                 && curKey[0] == 'h'
                                                 && curKey[16] == 'G';
     // cursor end
     icldb_next(&testDB);
-    curKey = icldb_curGet(&testDB, &keylen);
+    curKey = icldb_curGetKey(&testDB, &keylen);
     const bool TEST_CURSOR_END = (keylen == 0) && (curKey == nullptr);
     // double put
     const bool TEST_DOUBLE_PUT_SHOULD_FAIL =  icldb_put(&testDB, keyB, 5, valB, 5) == 1
