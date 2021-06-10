@@ -20,13 +20,13 @@
       0.1.0  Initial release
  
   PEANUTS
-      BTC:  1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc
-      BCH:  qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh
-      BSV:  15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP
+      BTC:  1MrFGbCJvMg3khXDdEGaJxbMobazX1SkCw
+      BCH:  qqzdcc4drzvwm8z75s5mdhevh5p75x2qdycwld08sm
+      BSV:
       ETH:  0x32a42d02eB021914FE8928d4A60332970F96f2cd
-      DCR:  DsWY2Z1NThKqumM6x9oiyM3f2RkW28ruoyA
-      LTC:  LWZ5HCcpModc1XcFpjEzz25J58eeQ8fJ7F
-      DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
+      DCR:
+      LTC:
+      DASH:
       Thank you in advance!
       
 */
@@ -96,10 +96,10 @@ bool icldb__fileGrow(struct icldb__file *file, int len);
 
 #if defined(_WIN32) && !defined(INCLUDEDB_USE_STD_FILE_OPS)
   #include <winbase.h>
-  #define INCLUDEDB_USE_STD_FILE_OPS
+  #define INCLUDEDB_USE_STD_FILE_OPS // todo: temporary. should not be defined after mmap done
 #else
   #include <sys/mman.h>
-  #define INCLUDEDB_USE_STD_FILE_OPS
+  #define INCLUDEDB_USE_STD_FILE_OPS // todo: temporary. should not be defined after mmap done
 #endif
 
 #if defined(INCLUDEDB_USE_STD_FILE_OPS)
@@ -146,7 +146,29 @@ bool icldb__fileGrow(struct icldb__file *file, int len);
       (void)len;
       return true;
   }
-#else
+
+#else // todo: mmap impl.
+  typedef struct icldb__file
+  {
+  } icldb__file;
+
+  bool icldb__fileOpen(icldb__file *file, const char *filename)
+  {}
+
+  bool icldb__fileCreate(icldb__file *file, const char *filename)
+  {}
+
+  bool icldb__fileClose(icldb__file *file)
+  {}
+
+  int  icldb__fileWrite(icldb__file *file, const unsigned char *bytes, int len, int filepos)
+  {}
+
+  void icldb__fileRead(icldb__file *file, unsigned char *bytes, int len, int filepos)
+  {}
+
+  bool icldb__fileGrow(icldb__file *file, int len)
+  {}
 
 #endif
 
@@ -275,6 +297,10 @@ static const char *icldb_getError(includeDB *instance);
   #include <time.h>
 #endif
 
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                         bloom filter */
+/*++++++++++++++++++++++++++++++++++++++*/
+
 inline constexpr void icldb__bloomPut(includeDB *instance)
 {
     (void)instance;
@@ -290,6 +316,11 @@ inline constexpr bool icldb__bloomMaybeHave(const includeDB *instance, const uns
     const unsigned h = hash & 0xffffffff;
     return true; // !((h & instance->bloommap) ^ h);
 }
+
+
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                                 hash */
+/*++++++++++++++++++++++++++++++++++++++*/
 
 static constexpr unsigned icldb__xx32(const unsigned char *input, int len, unsigned seed)
 {
@@ -364,6 +395,11 @@ static constexpr unsigned icldb__xx32(const unsigned char *input, int len, unsig
     return h;
 }
 
+
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                     bit array/vector */
+/*++++++++++++++++++++++++++++++++++++++*/
+
 static int icldb__bitvecAlloc(icldb__bitvec *bitvec, int amount)
 {
     const int szOld = bitvec->szVecIn32Chunks;
@@ -389,6 +425,11 @@ inline constexpr void icldb__bitvecSet(icldb__bitvec *bitvec, int pos)
     const unsigned bit = 1 << (pos&31);
     bitvec->bitvec[pos>>5] |= bit;
 }
+
+
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                                slots */
+/*++++++++++++++++++++++++++++++++++++++*/
 
 inline constexpr int icldb__gatherSlots(includeDB *instance, int requiredSlots)
 {
@@ -432,6 +473,11 @@ static int icldb__nodevecAlloc(includeDB *instance, int newSize)
     instance->nodeVec = tmp;
     return 0;
 }
+
+
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                       skiplist impl. */
+/*++++++++++++++++++++++++++++++++++++++*/
 
 static constexpr int icldb__getNewKeyPos(includeDB *instance)
 {
@@ -514,6 +560,11 @@ inline constexpr icldb__skipnode *icldb__findSkipnode(includeDB *instance, const
     const int res = icldb__findPrevSkipnode(instance, key, instance->headD, 3);
     return instance->nodeVec[res].nodeid == key ? &instance->nodeVec[res] : nullptr;
 }
+
+
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                             file ops */
+/*++++++++++++++++++++++++++++++++++++++*/
 
 static constexpr int icldb__dbBufferResize(includeDB *instance, int newsize)
 {
@@ -606,7 +657,7 @@ static constexpr int icldb_put(includeDB *instance, const unsigned char *key, in
                                  + keylen
                                  + vallen
                                  + 1;
-    const int requiredSlots = (requiredSizeInByte/chunkSize) + 1; // !!(requiredSizeInByte%chunkSize);
+    const int requiredSlots = (requiredSizeInByte/chunkSize) + 1; // '!!(requiredSizeInByte%chunkSize)' easier to just add 1
     const int requiredSizeOfRecord = requiredSlots*chunkSize;
     const int location = icldb__gatherSlots(instance, requiredSlots);
     if (location == -1)
@@ -755,6 +806,7 @@ static includeDB *icldb_open(const char *filename)
         newInstance->seed = sd;
     }
     else
+    // open existing file:
     {
         // read icld
         unsigned char buf[24];
@@ -794,7 +846,7 @@ static includeDB *icldb_open(const char *filename)
         // read filesz
         // read vists
         
-        // if # of total acces > some 'limit', /2!!
+        // if # of total acces > some 'limit', /2!! // hint: just & 0x one bit to stop overlow if constantly access same item! no need 2 count if its that big!!
     }
     // Create buffer:
     newInstance->buffer = (unsigned char *)icldb__malloc(newInstance->chunkSize);
@@ -838,6 +890,14 @@ static includeDB *icldb_open(const char *filename)
         icldb__fileRead(&newInstance->file, buf, 16, offset+dbHeaderSize);
         const unsigned keyhash = (buf[0]<<24) | (buf[1]<<16) | (buf[2]<<8) | buf[3];
         icldb__insertNewSkipnode(newInstance, keyhash, offset);
+        
+        
+        const unsigned priA=buf[12], priB=buf[13], priC=buf[14], priD=buf[15];
+        const unsigned tombstone = (priA<<24) | (priB<<16) | (priC<< 8) | priD;
+        printf("%d - hash: %d tomb: %d \n", i, keyhash, tombstone);
+        
+        
+        
         // get position for the next record:
         const unsigned keylen = (buf[ 4]<<24) | (buf[ 5]<<16) | (buf[ 6]<<8) | buf[ 7];
         const unsigned vallen = (buf[ 8]<<24) | (buf[ 9]<<16) | (buf[10]<<8) | buf[11];
