@@ -56,8 +56,4 @@ int main(void)
     icldb_close(db);
 }
 
-/*
- todo:
- static constexpr unsigned char *icldb_get(includeDB *instance, const unsigned char *key, int keylen, int *vallen);
 
- */

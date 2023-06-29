@@ -300,7 +300,6 @@ static const char *icldb_getError(includeDB *instance);
 /*++++++++++++++++++++++++++++++++++++++*/
 /*                         bloom filter */
 /*++++++++++++++++++++++++++++++++++++++*/
-
 inline constexpr void icldb__bloomPut(includeDB *instance)
 {
     (void)instance;
@@ -321,7 +320,6 @@ inline constexpr bool icldb__bloomMaybeHave(const includeDB *instance, const uns
 /*++++++++++++++++++++++++++++++++++++++*/
 /*                                 hash */
 /*++++++++++++++++++++++++++++++++++++++*/
-
 static constexpr unsigned icldb__xx32(const unsigned char *input, int len, unsigned seed)
 {
     // https://github.com/Cyan4973/xxHash
@@ -399,7 +397,6 @@ static constexpr unsigned icldb__xx32(const unsigned char *input, int len, unsig
 /*++++++++++++++++++++++++++++++++++++++*/
 /*                     bit array/vector */
 /*++++++++++++++++++++++++++++++++++++++*/
-
 static int icldb__bitvecAlloc(icldb__bitvec *bitvec, int amount)
 {
     const int szOld = bitvec->szVecIn32Chunks;
@@ -430,7 +427,6 @@ inline constexpr void icldb__bitvecSet(icldb__bitvec *bitvec, int pos)
 /*++++++++++++++++++++++++++++++++++++++*/
 /*                                slots */
 /*++++++++++++++++++++++++++++++++++++++*/
-
 inline constexpr int icldb__gatherSlots(includeDB *instance, int requiredSlots)
 {
     bool haveAvail = false;
@@ -478,7 +474,6 @@ static int icldb__nodevecAlloc(includeDB *instance, int newSize)
 /*++++++++++++++++++++++++++++++++++++++*/
 /*                       skiplist impl. */
 /*++++++++++++++++++++++++++++++++++++++*/
-
 static constexpr int icldb__getNewKeyPos(includeDB *instance)
 {
     if (instance->nKeys == instance->nAllocated)
@@ -565,7 +560,6 @@ inline constexpr icldb__skipnode *icldb__findSkipnode(includeDB *instance, const
 /*++++++++++++++++++++++++++++++++++++++*/
 /*                             file ops */
 /*++++++++++++++++++++++++++++++++++++++*/
-
 static constexpr int icldb__dbBufferResize(includeDB *instance, int newsize)
 {
     const int sz = instance->szBuf;
@@ -648,7 +642,7 @@ static constexpr int icldb_put(includeDB *instance, const unsigned char *key, in
     {
         instance->ec = ICLDB__ALREADY_KEY;
         return 1;
-    };
+    }
     const int chunkSize = instance->chunkSize;
     const int requiredSizeInByte = icldb__header_keyhashLen
                                  + icldb__header_keylenLen
@@ -725,7 +719,7 @@ static constexpr unsigned char *icldb_get(includeDB *instance, const unsigned ch
         const unsigned vl = (data[0]<<24) | (data[1]<<16) | (data[2]<< 8) | data[3];
         // read rest
         instance->icldb__read(instance, found->filepos+headerSize + kl, vl);
-        int unusedVallen = 0; // In case vallen == nullptr
+        int unusedVallen = 0; // Dummy, in case vallen == nullptr
         vallen = vallen ? : &unusedVallen;
         *vallen = vl;
         instance->ec = ICLDB__OK;

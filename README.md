@@ -1,19 +1,33 @@
 # IncludeDB
 
-An [stb](https://github.com/nothings/stb/)-style *#include*-only single-header k/v store implemented in C99 with an emphasis on easy-of-use.
-Meant to be used in environments with limited resources or in situations where a more complex database library would be an overkill such as small games.
+An [stb](https://github.com/nothings/stb/)-style *#include*-only single-header k/v store implemented in 
+C99 with an emphasis on easy-of-use. <em>Small file database (!)</em> to be used in environments with 
+limited resources or in situations where a more complex database library would be an overkill such as 
+small games.
 
 ## THIS PROJECT NEEDS YOUR SUPPORT!
 
 If you like this project or find it useful in any way, please help out - even just a little bit! It helps immensely!
 Donate here:
 
-<img src="images/btc.png" width="150px" alt="1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc"><img src="images/bch.png" width="150px" alt="qzgfgd6zen70mfzasjtc4rx9m7fhz65zyg0n6v3sdh"><img src="images/bsv.png" width="150px" alt="15dtAGzzMf6yWF82aYuGKZYMCyP5HoWVLP"><img src="images/eth.png" width="150px" alt="0x32a42d02eB021914FE8928d4A60332970F96f2cd">
-DCR:  DsWY2Z1NThKqumM6x9oiyM3f2RkW28ruoyA
-LTC:  LWZ5HCcpModc1XcFpjEzz25J58eeQ8fJ7F
-DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
+####
+<img src="images/btc.png" width="150px" alt="bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n">
+bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
+####
+<img src="images/bch.png" width="150px" alt="bitcoincash:qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0.PNG">
+bitcoincash-qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0.PNG
+####
+<img src="images/ltc.png" width="150px" alt="LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b">
+LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
+####
+<img src="images/xmr.png" width="150px" alt="47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8">
+47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8
+####
+<img src="images/eth.png" width="150px" alt="ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd">
+ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd
 
-**Attention!! This project is *early* alpha and many things have yet to be implemented:**
+
+**Attention!! This project is still *alpha* and many things have yet to be implemented:**
 - memory mapping
 - Support for concurrent read
 - Support for thread-safe write
@@ -22,7 +36,7 @@ DASH: XqMBmnxrgJWsvF7Hu3uBQ53TpcKLEsxsEi
 - recover keys
 - benches
 - maybe more stuff, I'm open for suggestions...
-- **A better logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
+- **A logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
 
 ### Table of Contents
 - [Building](#building)
@@ -45,7 +59,7 @@ If compiled as C++ a number of unit-tests will be executed during compilation. T
 _**Attention** This code is not yet production-ready! Proceed accordingly!_
 
 Configuration:
-More options, such as setting a different malloc()/free() are available. Take a look inside *nanopulsedb.h*
+More options, such as setting a different malloc()/free() are available. Take a look inside *includedb.h*
 ```
 // Chunk size is 256 by default. This is the MINIMUM size
 // a key/value pair is going to take up. To set a custom value:
