@@ -7,13 +7,13 @@
 int main(void)
 {
     // Create new file or open existing:
-    includeDB *db = icldb_open("hello.dat");
+    includeDB *db = includedb_open("hello.dat");
     if (!db)
     {
         printf("error opening db\n");
     }
     
-    
+ /*   
     // Iterate over all keys:
     int keylen, vallen;
     unsigned char *curKey = icldb_curGetKey(db, &keylen);
@@ -53,7 +53,8 @@ int main(void)
     }
     
     // Done:
-    icldb_close(db);
+    includedb_close(db);
+    */
 }
 
 

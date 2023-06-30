@@ -62,17 +62,7 @@
 // typedef size_t icldb__size;
 
 
-struct icldb__bitvec;
 
-typedef int (*pIcldb__bitvecAlloc)(struct icldb__bitvec *bitvec, int amount);
-
-typedef struct icldb__bitvec
-{
-    CTOR3(icldb__bitvec() : bitvec(nullptr), szVecIn32Chunks(0), icldb__bitvecAlloc(nullptr) {})
-    unsigned *bitvec;
-    int szVecIn32Chunks;
-    pIcldb__bitvecAlloc icldb__bitvecAlloc;
-} icldb__bitvec;
 
 
 typedef struct icldb__skipnode
@@ -981,26 +971,7 @@ static const char *icldb_getError(includeDB *instance)
 
 #if !defined(DISABLE_TESTS)
 
-constexpr unsigned icldb__testBitvec()
-{
-    unsigned bitvecBits[3] = {0};
-    icldb__bitvec testBitvec;
-    testBitvec.bitvec = bitvecBits;
-    for (int i=0; i<64; ++i)
-        icldb__bitvecSet(&testBitvec, i);
-    const bool TEST_BIT_63 =   icldb__bitvecCheck(&testBitvec, 63)
-                           && !icldb__bitvecCheck(&testBitvec, 64);
-    icldb__bitvecSet(&testBitvec, 64);
-    const bool TEST_BIT_64 =   icldb__bitvecCheck(&testBitvec, 64)
-                           && !icldb__bitvecCheck(&testBitvec, 65);
-    
-    return  TEST_BIT_63
-         | (TEST_BIT_64 << 1);
-}
-constexpr unsigned resBitvec = icldb__testBitvec();
 
-static_assert(resBitvec&1, "bit 63 not correct");
-static_assert(resBitvec&2, "bit 64 not correct");
 
 
 constexpr unsigned icldb__testSlots()
