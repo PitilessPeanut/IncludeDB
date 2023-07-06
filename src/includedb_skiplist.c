@@ -1,12 +1,104 @@
 #include "includedb_skiplist.h"
 
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                                slots */
+/*++++++++++++++++++++++++++++++++++++++*/
+static constexpr int includedb__gatherSlots(includeDB *instance, int requiredSlots)
+{
+    bool haveAvail = false;
+    int location = 0;
+    includedb__bitvec *bitvec = &instance->occupied;
+    for (; location<((bitvec->szVecIn32Chunks*32)-requiredSlots) && !haveAvail; ++location)
+        if (includedb__bitvecCheck(bitvec, location) == 0)
+        {
+            haveAvail = true;
+            for (int i=1; i<requiredSlots-1; ++i)
+                haveAvail = haveAvail && (includedb__bitvecCheck(bitvec, location+i) == 0);
+        }
+    location -= 1;
+    if (!haveAvail)
+    {
+        // make room:
+        const int amount = (requiredSlots/32) + 1;
+        if (bitvec->includedb__bitvecAlloc(bitvec, amount))
+        {
+            instance->ec = INCLUDEDB__BITVEC_ALLOC;
+            return -1; // failed
+        }
+        // todo : grow file 32*chunksz
+        return includedb__gatherSlots(instance, requiredSlots);
+    }
+    return location;
+}
+
+static constexpr void includedb__markSlots(includedb__bitvec *bitvec, int start, int len)
+{
+    for (int i=0; i<len; i++)
+        includedb__bitvecSet(bitvec, start+i);
+}
+
 static int includedb__nodevecAlloc(includeDB *instance, int newSize)
 {
     includedb__skipnode *tmp = (includedb__skipnode *)includedb__realloc(instance->nodeVec, newSize * sizeof(includedb__skipnode));
     if (!tmp)
-        return includedb__error;
+        return includedb_error;
     instance->nodeVec = tmp;
-    return includedb__ok;
+    return includedb_ok;
+}
+
+
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                       skiplist impl. */
+/*++++++++++++++++++++++++++++++++++++++*/
+static constexpr int includedb__getNewKeyPos(includeDB *instance)
+{
+    if (instance->nKeys == instance->nAllocated)
+    {
+        const int newSize = instance->nAllocated << 1;
+        if (instance->includedb__nodevecAlloc(instance, newSize) == 1)
+        {
+            instance->ec = INCLUDEDB__NODE_ALLOC;
+            return instance->nKeys;
+        }
+        instance->nAllocated = newSize;
+    }
+    return instance->nKeys++;
+}
+
+static constexpr void includedb__insertSkipnode(includeDB *instance, unsigned key, int pos, int layer)
+{
+    // special case: key smaller than any before:
+    if (key < instance->nodeVec[instance->headD].nodeid)
+    {
+        instance->nodeVec[pos].next = instance->headD;
+        instance->headD = pos;
+        return;
+    }
+    
+    int current = instance->headD;
+    int next = 0;
+    for (int i=0; i<instance->nKeys-2; ++i)
+    {
+        next = instance->nodeVec[current].next;
+        if (instance->nodeVec[next].nodeid > key)
+        {
+            instance->nodeVec[pos].next = next;
+            break;
+        }
+        else if (current == next)
+            i = instance->nKeys; // break
+        current = next;
+    }
+    instance->nodeVec[current].next = pos;
+}
+
+static constexpr void includedb__insertNewSkipnode(includeDB *instance, unsigned key, int filepos)
+{
+    const int newNodeAddr = includedb__getNewKeyPos(instance);
+    instance->nodeVec[newNodeAddr].nodeid  = key;
+    instance->nodeVec[newNodeAddr].filepos = filepos;
+    
+    includedb__insertSkipnode(instance, key, newNodeAddr, 3);
 }
 
 static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsigned key, const int start, const int layer)
@@ -45,6 +137,77 @@ static constexpr includedb__skipnode *includedb__findSkipnode(includeDB *instanc
 /*                                Tests */
 /*++++++++++++++++++++++++++++++++++++++*/
 #if !defined(DISABLE_TESTS)
+
+constexpr unsigned includedb__testSlots()
+{
+    includeDB testDB{ .mappedArray=nullptr,
+                      .chunkSize=0,
+                      .nodeVec=nullptr,
+                      .seed=0
+                    };
+    unsigned bitvecBits[3/* *32 */] = {0};
+    testDB.occupied.bitvec = bitvecBits;
+    testDB.occupied.szVecIn32Chunks  = 1;
+    auto testAlloc = [](includedb__bitvec *bitvec, int amount)->int
+                     {
+                         if ((bitvec->szVecIn32Chunks+amount) <= 3)
+                         {
+                             bitvec->szVecIn32Chunks += amount;
+                             return 0;
+                         }
+                         return 1;
+                     };
+    testDB.occupied.includedb__bitvecAlloc = testAlloc;
+    const bool TEST_HAVE_ZERO_SLOTS = includedb__gatherSlots(&testDB, 0) == 0;
+    int location = includedb__gatherSlots(&testDB, 2);
+    includedb__markSlots(&testDB.occupied, location, 2);
+    const bool TEST_TWO_SLOTS_OCCUPIED =  (bitvecBits[0]&1)
+                                       && (bitvecBits[0]&2)
+                                       && !(bitvecBits[0]&4)
+                                       && location==0;
+    location = includedb__gatherSlots(&testDB, 1);
+    includedb__markSlots(&testDB.occupied, location, 1);
+    const bool TEST_LOCATION_TWO = location == 2;
+    location = includedb__gatherSlots(&testDB, 7);
+    includedb__markSlots(&testDB.occupied, location, 7);
+    const bool TEST_LOCATION_THREE = location == 3;
+    // test large allocation:
+    location = includedb__gatherSlots(&testDB, 24+39);
+    includedb__markSlots(&testDB.occupied, location, 24+39);
+    const bool TEST_LOCATION_EIGHT = location == 10;
+    location = includedb__gatherSlots(&testDB, 22);
+    includedb__markSlots(&testDB.occupied, location, 22);
+    const bool TEST_LOCATION_DEEP = location == 10+24+39;
+    const bool TEST_ALL_FLAGS_SET =  !(bitvecBits[0]^0xffffffff)
+                                  && !(bitvecBits[1]^0xffffffff)
+                                  && !(bitvecBits[2]^0x7fffffff)
+    //&& !(bitvecBits[2]^0b00000000000000000000000011111111)
+    //&& !(bitvecBits[2]^0b1111111111111111111111111111111)
+    //&& bitvecBits[2] > 0x1fffffffu
+    ;
+    
+    // todo: test free slots!
+    
+    
+    return  TEST_HAVE_ZERO_SLOTS
+         | (TEST_TWO_SLOTS_OCCUPIED<< 1)
+         | (TEST_LOCATION_TWO<< 2)
+         | (TEST_LOCATION_THREE<< 3)
+         | (TEST_LOCATION_EIGHT<< 4)
+         | (TEST_LOCATION_DEEP<< 5)
+         | (TEST_ALL_FLAGS_SET<< 6)
+         ;
+}
+constexpr unsigned resSlots = includedb__testSlots();
+
+static_assert(resSlots&  1, "couldn't gather 0 slots");
+static_assert(resSlots&  2, "slots were not correctly marked as 'occupied'");
+static_assert(resSlots&  4, "incorrect slot position (2)");
+static_assert(resSlots&  8, "incorrect slot position (3)");
+static_assert(resSlots& 16, "incorrect slot position (8)");
+static_assert(resSlots& 32, "incorrect slot position (8+24+39)");
+static_assert(resSlots& 64, "flags set incorrectly");
+
 
 constexpr unsigned includedb__testSkiplist()
 {

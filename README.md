@@ -15,36 +15,32 @@ Ensure smooth-sailing & regular updates by donating &#129372;s below:
 
 Progress of financing (until next update)
 
-<div style="box-sizing:content-box;height:20px;position:relative;border-radius:25px;padding:10px;box-shadow:inset 0 -1px 1px rgba(255,255,255,0.3);">
-  <span style="width:1%; display:block;height:100%;background-color:rgb(194,43,83);background-image:linear-gradient(center bottom,rgb(194,43,83) 37%,rgb(84,84,240) 69%);box-shadow: inset 0 2px 9px rgba(255,255,255,0.3) 69%;position:relative;overflow:hidden;"></span>
-<div>
-<small>Updates to this are hand-tracket from all support added together. Trying to be as accurate as we can</small>
+<b>Received so far: 0/250 usd</b>
+<b>Remaining: 250</b>
+<em>Updates to this are hand-tracked from all support added together. Trying to be as accurate as we can, check addresses below</em>
 
-<b>Received so far: 0/500 usd</b>
-
-<p>
 bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
+<p>
 <img src="images/btc.png" width="150px" alt="bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n">
 </p>
-<p>
 bitcoincash:qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0
+<p>
 <img src="images/bch.png" width="150px" alt="bitcoincash:qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0">
 </p>
-<p>
 LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
+<p>
 <img src="images/ltc.png" width="150px" alt="LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b">
 </p>
-<p>
 47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8
+<p>
 <img src="images/xmr.png" width="180px" alt="47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8">
 </p>
-<p>
 ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd
+<p>
 <img src="images/eth.png" width="150px" alt="ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd">
 </p>
 <em> &#129704; Let's cook this stonesoup together!!! &#129704; </em>
 
-WE NEED YOUR SUPPORT!
 
 ### Status
 
@@ -53,7 +49,7 @@ WE NEED YOUR SUPPORT!
 - Support for concurrent read
 - Support for thread-safe write
 - Proper Windows support
-- *delete* a key/value pair
+- *delete()*ing a key/value pair
 - recover keys
 - benches
 - maybe more stuff, I'm open for suggestions...

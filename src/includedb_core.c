@@ -1,6 +1,124 @@
 #include "includedb_core.h"
 
 
+static constexpr int includedb_put(includeDB *instance, const unsigned char *key, int keylen, const unsigned char *val, int vallen)
+{
+    const unsigned keyhash = INCLUDEDB_HASH(key, keylen, instance->seed);
+    if (includedb_get(instance, key, keylen, nullptr))
+    {
+        instance->ec = INCLUDEDB__ALREADY_KEY;
+        return includedb_error;
+    }
+    const int chunkSize = instance->chunkSize;
+    const int requiredSizeInByte = includedb__header_keyhashLen
+                                 + includedb__header_keylenLen
+                                 + includedb__header_vallenLen
+                                 + includedb__header_recordPriorityLen
+                                 + keylen
+                                 + vallen
+                                 + 1;
+    const int requiredSlots = (requiredSizeInByte/chunkSize) + 1; // '!!(requiredSizeInByte%chunkSize)' easier to just add 1
+    const int requiredSizeOfRecord = requiredSlots*chunkSize;
+    const int location = includedb__gatherSlots(instance, requiredSlots);
+    if (location == -1)
+    {
+        instance->ec = INCLUDEDB__SLOTS_ALLOC;
+        return includedb_error;
+    }
+    includedb__markSlots(&instance->occupied, location, requiredSlots);
+    // Hook up new node:
+    includedb__insertNewSkipnode(instance, keyhash, location*chunkSize);
+    // Write data:
+    if (includedb__dbBufferResize(instance, requiredSizeOfRecord))
+        return includedb_error;
+    unsigned char *data = instance->buffer;
+    data[ 0] = (keyhash>>24) & 0xff;
+    data[ 1] = (keyhash>>16) & 0xff;
+    data[ 2] = (keyhash>> 8) & 0xff;
+    data[ 3] = (keyhash    ) & 0xff;
+    data[ 4] = (keylen>>24) & 0xff;
+    data[ 5] = (keylen>>16) & 0xff;
+    data[ 6] = (keylen>> 8) & 0xff;
+    data[ 7] = (keylen    ) & 0xff;
+    data[ 8] = (vallen>>24) & 0xff;
+    data[ 9] = (vallen>>16) & 0xff;
+    data[10] = (vallen>> 8) & 0xff;
+    data[11] = (vallen    ) & 0xff;
+    // Priority field is little endian and initialized to 1 for a new record.
+    // If 0 then it is a tombstone marked for overwrite:
+    data[12] = 0;
+    data[13] = 0;
+    data[14] = 0;
+    data[15] = 1;
+    data += 16;
+    // key first:
+    for (int i=0; i<keylen; ++i, data++)
+        *data = key[i];
+    // then data:
+    for (int i=0; i<vallen; ++i, data++)
+        *data = val[i];
+    // then write:
+    return instance->includedb__write(instance, location*chunkSize, requiredSizeOfRecord);
+}
+
+static constexpr unsigned char *includedb_get(includeDB *instance, const unsigned char *key, int keylen, int *vallen)
+{
+    instance->ec = INCLUDEDB__KEY_NOT_FOUND;
+    const unsigned keyhash = INCLUDEDB_HASH(key, keylen, instance->seed);
+   // if (includedb__bloomMaybehave(instance, keyhash) == false) // todo impl.
+     //   return nullptr;
+        
+    // todo increase priority
+    
+    COMPTIME unsigned headerSize = includedb__header_keyhashLen
+                                 + includedb__header_keylenLen
+                                 + includedb__header_vallenLen
+                                 + includedb__header_recordPriorityLen;
+    includedb__skipnode *found = includedb__findSkipnode(instance, keyhash);
+    if (found)
+    {
+        // read header
+        instance->includedb__read(instance, found->filepos, headerSize);
+        unsigned char *data = &instance->buffer[includedb__header_keyhashLen];
+        const unsigned kl = (data[0]<<24) | (data[1]<<16) | (data[2]<< 8) | data[3];
+        data += includedb__header_keylenLen;
+        const unsigned vl = (data[0]<<24) | (data[1]<<16) | (data[2]<< 8) | data[3];
+        // read rest
+        instance->includedb__read(instance, found->filepos+headerSize + kl, vl);
+        int unusedVallen = 0; // Dummy, in case vallen == nullptr
+        vallen = vallen ? : &unusedVallen;
+        *vallen = vl;
+        instance->ec = INCLUDEDB__OK;
+        return instance->buffer;
+    }
+    return nullptr;
+}
+
+static constexpr void includedb_next(includeDB *instance)
+{
+    instance->cursor += 1;
+}
+
+static constexpr unsigned char *includedb_curGetKey(includeDB *instance, int *keylen)
+{
+    *keylen = 0;
+    if (instance->cursor == instance->nKeys)
+        return nullptr;
+    COMPTIME int headerSize = includedb__header_keyhashLen
+                            + includedb__header_keylenLen
+                            + includedb__header_vallenLen
+                            + includedb__header_recordPriorityLen;
+    const int filepos = instance->nodeVec[instance->cursor].filepos;
+    if (instance->includedb__read(instance, filepos, headerSize) != 0)
+        return nullptr;
+    const unsigned char *data = instance->buffer;
+    const int kl = (data[4]<<24) | (data[5]<<16) | (data[6]<<8) | data[7];
+    if (instance->includedb__read(instance, filepos+headerSize, kl) != 0)
+        return nullptr;
+    *keylen = kl;
+    return instance->buffer;
+}
+
 static includeDB *includedb_open(const char *filename)
 {
     COMPTIME unsigned char magic[] = "incldedb";
@@ -101,7 +219,7 @@ static includeDB *includedb_open(const char *filename)
     newInstance->nodeVec = (includedb__skipnode *)includedb__malloc(sizeof(includedb__skipnode) * nInitialBits);
     newInstance->nAllocated = nInitialBits;
     newInstance->includedb__nodevecAlloc = includedb__nodevecAlloc;
-    /*
+    
     // todo: init heads
     newInstance->headD = 0;
     
@@ -109,15 +227,15 @@ static includeDB *includedb_open(const char *filename)
     newInstance->nKeys = 0;
     // put cursor to the start
     newInstance->cursor = 0;
-    // init bloomfilter
-    newInstance->bloommap = 0;
-    for (int i=0; i<szBloommap; ++i)
-        newInstance->bloomcounters[i] = 0;
+    // init bloomfilter (todo)
+    //newInstance->bloommap = 0;
+    //for (int i=0; i<szBloommap; ++i)
+    //    newInstance->bloomcounters[i] = 0;
     // reset error
-    newInstance->ec = ICLDB__OK;
+    newInstance->ec = INCLUDEDB__OK;
     
     
-    printf("num ky %d \n", nKeys);
+    //printf("num ky %d \n", nKeys);
     
     // Build index:
     COMPTIME int dbHeaderSize = 128;
@@ -125,34 +243,87 @@ static includeDB *includedb_open(const char *filename)
     unsigned char buf[20];
     for (int i=0; i<nKeys; ++i)
     {
-        icldb__fileRead(&newInstance->file, buf, 16, offset+dbHeaderSize);
+        includedb__fileRead(&newInstance->file, buf, 16, offset+dbHeaderSize);
         const unsigned keyhash = (buf[0]<<24) | (buf[1]<<16) | (buf[2]<<8) | buf[3];
-        icldb__insertNewSkipnode(newInstance, keyhash, offset);
+        includedb__insertNewSkipnode(newInstance, keyhash, offset);
         
         
         const unsigned priA=buf[12], priB=buf[13], priC=buf[14], priD=buf[15];
         const unsigned tombstone = (priA<<24) | (priB<<16) | (priC<< 8) | priD;
-        printf("%d - hash: %d tomb: %d \n", i, keyhash, tombstone);
-        
+        //printf("%d - hash: %d tomb: %d \n", i, keyhash, tombstone);
         
         
         // get position for the next record:
         const unsigned keylen = (buf[ 4]<<24) | (buf[ 5]<<16) | (buf[ 6]<<8) | buf[ 7];
         const unsigned vallen = (buf[ 8]<<24) | (buf[ 9]<<16) | (buf[10]<<8) | buf[11];
-        const int requiredSizeInByte = icldb__header_keyhashLen
-                                     + icldb__header_keylenLen
-                                     + icldb__header_vallenLen
-                                     + icldb__header_recordPriorityLen
+        const int requiredSizeInByte = includedb__header_keyhashLen
+                                     + includedb__header_keylenLen
+                                     + includedb__header_vallenLen
+                                     + includedb__header_recordPriorityLen
                                      + keylen
                                      + vallen
                                      + 1;
         const int requiredSlots = (requiredSizeInByte/newInstance->chunkSize) + 1;
-        const int slotLocation = icldb__gatherSlots(newInstance, requiredSlots);
-        icldb__markSlots(&newInstance->occupied, slotLocation, requiredSlots);
+        const int slotLocation = includedb__gatherSlots(newInstance, requiredSlots);
+        includedb__markSlots(&newInstance->occupied, slotLocation, requiredSlots);
         offset += newInstance->chunkSize * requiredSlots;
     }
     
     return newInstance;
-    */
 }
+
+static void includedb_close(includeDB *instance)
+{
+    if (instance == nullptr)
+        return;
+        
+    unsigned char buf[4];
+    const int nk = instance->nKeys;
+    buf[0]=nk>>24; buf[1]=(nk>>16)&0xff; buf[2]=(nk>>8)&0xff; buf[3]=nk&0xff;
+    includedb__fileWrite(&instance->file, buf, 4, 12);
+    
+    // todo write inm.!!
+    const unsigned sd = instance->seed;
+    buf[0]=sd>>24; buf[1]=(sd>>16)&0xff; buf[2]=(sd>>8)&0xff; buf[3]=sd&0xff;
+    includedb__fileWrite(&instance->file, buf, 4, 20);
+    
+    includedb__free(instance->buffer);
+    includedb__fileClose(&instance->file);
+    includedb__free(instance->occupied.bitvec);
+    // todo: write all visits from nodes to file!
+    includedb__free(instance->nodeVec);
+    includedb__free(instance);
+}
+
+static const char *includedb_getError(includeDB *instance)
+{
+    if (!instance)
+        return includedb__errorMsg;
+    switch (instance->ec)
+    {
+        case INCLUDEDB__BITVEC_ALLOC:
+            includedb__errorMsg = "Couldn't grow bitvec. Out of mem?";
+            break;
+        case INCLUDEDB__NODE_ALLOC:
+            includedb__errorMsg = "Couldn't grow nodeVec. Out of mem?";
+            break;
+        case INCLUDEDB__BUFFER_ALLOC:
+            includedb__errorMsg = "Failed to alloc bigger buffer";
+            break;
+        case INCLUDEDB__ALREADY_KEY:
+            includedb__errorMsg = "Key already exists";
+            break;
+        case INCLUDEDB__SLOTS_ALLOC:
+            includedb__errorMsg = "Couldn't allocate more slots. Out of mem?";
+            break;
+        default:
+            includedb__errorMsg = "Ok";
+    }
+    return includedb__errorMsg;
+}
+
+
+/*++++++++++++++++++++++++++++++++++++++*/
+/*                                Tests */
+/*++++++++++++++++++++++++++++++++++++++*/
 

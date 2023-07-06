@@ -6,21 +6,21 @@ static int includedb__bitvecAlloc(includedb__bitvec *bitvec, int amount)
     bitvec->szVecIn32Chunks += amount;
     unsigned *tmp = (unsigned *)includedb__zeroalloc(bitvec->szVecIn32Chunks, sizeof(unsigned));
     if (!tmp)
-        return includedb__error;
+        return includedb_error;
     for (int i=0; i<szOld; ++i)
         tmp[i] = bitvec->bitvec[i];
     includedb__free(bitvec->bitvec);
     bitvec->bitvec = tmp;
-    return includedb__ok;
+    return includedb_ok;
 }
 
-inline constexpr unsigned includedb__bitvecCheck(const includedb__bitvec *bitvec, int pos)
+static constexpr unsigned includedb__bitvecCheck(const includedb__bitvec *bitvec, int pos)
 {
     const unsigned bit = bitvec->bitvec[pos>>5];
     return (bit >> (pos&31)) & 1;
 }
 
-inline constexpr void includedb__bitvecSet(includedb__bitvec *bitvec, int pos)
+static constexpr void includedb__bitvecSet(includedb__bitvec *bitvec, int pos)
 {
     const unsigned bit = 1 << (pos&31);
     bitvec->bitvec[pos>>5] |= bit;

@@ -43,14 +43,14 @@ constexpr void includedb__bloomRemove(includedb__bloom *bloom, includedb__inttyp
         bloom->counters[i+5] -= hash & 1; hash >>= 1;
         bloom->counters[i+6] -= hash & 1; hash >>= 1;
         bloom->counters[i+7] -= hash & 1; hash >>= 1;
-        mask |= !!bloom->counters[i+0] << i  ;
-        mask |= !!bloom->counters[i+1] << i+1;
-        mask |= !!bloom->counters[i+2] << i+2;
-        mask |= !!bloom->counters[i+3] << i+3;
-        mask |= !!bloom->counters[i+4] << i+4;
-        mask |= !!bloom->counters[i+5] << i+5;
-        mask |= !!bloom->counters[i+6] << i+6;
-        mask |= !!bloom->counters[i+7] << i+7;
+        mask |= !!bloom->counters[i+0] << (i  );
+        mask |= !!bloom->counters[i+1] << (i+1);
+        mask |= !!bloom->counters[i+2] << (i+2);
+        mask |= !!bloom->counters[i+3] << (i+3);
+        mask |= !!bloom->counters[i+4] << (i+4);
+        mask |= !!bloom->counters[i+5] << (i+5);
+        mask |= !!bloom->counters[i+6] << (i+6);
+        mask |= !!bloom->counters[i+7] << (i+7);
     }
     bloom->bitmap = bloom->bitmap & mask;
 }

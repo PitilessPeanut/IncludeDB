@@ -11,11 +11,11 @@ static constexpr int includedb__dbBufferResize(includeDB *instance, int newsize)
         if (!tmp)
         {
             instance->ec = INCLUDEDB__BUFFER_ALLOC;
-            return includedb__error;
+            return includedb_error;
         }
         instance->buffer = tmp;
     }
-    return includedb__ok;
+    return includedb_ok;
 }
 
 static int includedb__dbWrite(includeDB *instance, int location, int amount)
@@ -30,10 +30,10 @@ static int includedb__dbRead(includeDB *instance, int location, int amount)
     location += 128;
     
     // make sure the buffer is big enough:
-    if (includedb__dbBufferResize(instance, amount) == includedb__error)
-        return includedb__error;
+    if (includedb__dbBufferResize(instance, amount) == includedb_error)
+        return includedb_error;
     
     includedb__fileRead(&instance->file, instance->buffer, amount, location);
-    return includedb__ok;
+    return includedb_ok;
 }
 
