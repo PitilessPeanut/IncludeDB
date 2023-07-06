@@ -1,0 +1,7 @@
+#ifndef INCLUDEDB_CORE_H
+#define INCLUDEDB_CORE_H
+
+
+
+
+#endif // INCLUDEDB_CORE_H

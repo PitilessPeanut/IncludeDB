@@ -1,34 +1,50 @@
 # IncludeDB
 
 An [stb](https://github.com/nothings/stb/)-style *#include*-only single-header k/v store implemented in 
-C99 with an emphasis on easy-of-use. <em>Small file database (!)</em> to be used in environments with 
+C99 with an emphasis on easy-of-use. <em>Small file database (!)</em> best suited for environments with 
 limited resources or in situations where a more complex database library would be an overkill such as 
 small games.
 
-## begging
+<span style="font-weight:bold;">Use this in your Arduino/Playdate/WASM Game!!</span>
 
-WE NEED YOUR SUPPORT!
 
-This project is being developed on a non-existent budget and **will NOT survive** without at least starvation-level support!
-Donate here:
+## Financing
 
+This project is entirely self-financed and we NEED your support!
+Ensure smooth-sailing & regular updates by donating &#129372;s below: 
+
+Progress of financing (until next update)
+
+<div style="box-sizing:content-box;height:20px;position:relative;border-radius:25px;padding:10px;box-shadow:inset 0 -1px 1px rgba(255,255,255,0.3);">
+  <span style="width:1%; display:block;height:100%;background-color:rgb(194,43,83);background-image:linear-gradient(center bottom,rgb(194,43,83) 37%,rgb(84,84,240) 69%);box-shadow: inset 0 2px 9px rgba(255,255,255,0.3) 69%;position:relative;overflow:hidden;"></span>
+<div>
+<small>Updates to this are hand-tracket from all support added together. Trying to be as accurate as we can</small>
+
+<b>Received so far: 0/500 usd</b>
+
+<p>
 bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
 <img src="images/btc.png" width="150px" alt="bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n">
-
+</p>
+<p>
 bitcoincash:qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0
 <img src="images/bch.png" width="150px" alt="bitcoincash:qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0">
-
+</p>
+<p>
 LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
 <img src="images/ltc.png" width="150px" alt="LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b">
-
+</p>
+<p>
 47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8
 <img src="images/xmr.png" width="180px" alt="47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8">
-
+</p>
+<p>
 ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd
 <img src="images/eth.png" width="150px" alt="ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd">
-
+</p>
 <em> &#129704; Let's cook this stonesoup together!!! &#129704; </em>
 
+WE NEED YOUR SUPPORT!
 
 ### Status
 
@@ -44,7 +60,7 @@ ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd
 - **A logo is needed!** If you would like to volunteer to make one that would be super appreciated!!!
 
 ### Table of Contents
-- [Begging](#begging)
+- [Financing](#financing)
 - [Building](#building)
   - [Generate](#generate)
   - [Demo](#demo)
@@ -91,15 +107,30 @@ includedb_close(mydb);
 ```
 The database can also be operated entirely during compile time, providing you with a compile-time key/value store.
 
+*Attention!* All operations are synchronous, locking has not yet been implemented. See above^ to help financing!
+
+
 #### Javascript visualization
 *algo-visualize.js* is provided and can be run on algorithm-visualizer.org to show the mechanism of the underlying algorithm. 
 
+
 #### Known issues
-During alpha there are still some issues we are working on. Documented issues:
-'nplse_put()' may call 'nplse__write()' with uninitialized data 
+Depending on available resources these will be fixed over time.
+Issues:
+- 'includedb_put()' may call 'includedb__write()' with uninitialized data 
+- bloomfilters implemented but not used
+- missing node promotions
+- missing tests
+- missing locks
+- missing reverse cursor
+- missing mmap
+- missing error check/correction
+- missing (good) documentation!
+- much much more... ;(
 
 ## Contributing
 I hope the code is somewhat readable and not too much of a mess. Either way contributions are very welcome, feel free to msg me or issue a request!
+Join: https://discord.gg/dJxnkNwE
 
 ## Similar projects
 IncludeDB is a "storage engine", not a full database. Designed specifically for *small* files (<250mb). Depending on your requirements we encourage you to check out these:

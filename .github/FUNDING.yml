@@ -1,6 +1,6 @@
 # These are supported funding model platforms
 
-#github: # Replace with up to 4 GitHub Sponsors-enabled usernames e.g., [user1, user2]
+#github: Professor-Peanut # Replace with up to 4 GitHub Sponsors-enabled usernames e.g., [user1, user2]
 #patreon: # Replace with a single Patreon username
 #open_collective: # Replace with a single Open Collective username
 #ko_fi: # Replace with a single Ko-fi username
@@ -11,4 +11,9 @@
 #otechie: # Replace with a single Otechie username
 #custom: # Replace with up to 4 custom sponsorship URLs e.g., ['link1', 'link2']
 
-custom: bitcoin://1H1RrCrEgUXDFibpaJciLjS9r7upQs6XPc
+custom: ["bitcoin:bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n", Bitcoin]
+custom: ["bitcoincash:qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0", Bitcoin Cash]
+custom: ["LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b", Litecoin]
+custom: ["47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8", Monero]
+custom: ["ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd", ETH]
+

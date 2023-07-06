@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 
+config_file = "src/includedb_config.h"
+
 files = [
-("src/includedb_config.h", []),
-("src/includedb_core.h"  , []),
-("src/includedb_core.c"  , ["src/includedb_config.h","src/includedb_core.h"])   
+("src/includedb_core.h"    , [                                                   ]),
+("src/includedb_bloom.c"   , ["src/includedb_config.h","src/includedb_bloom.h"]),
+("src/includedb_bitvec.c"  , ["src/includedb_config.h","src/includedb_bitvec.h"  ]),
+("src/includedb_skiplist.c", ["src/includedb_config.h","src/includedb_skiplist.h"]),
+("src/includedb_fileops.c" , ["src/includedb_config.h","src/includedb_fileops.h" ]),
+("src/includedb_core.c"    , ["src/includedb_config.h","src/includedb_core.h"    ])   
 ]
 
 # for testing only:
@@ -55,7 +60,7 @@ merge_result = """/*
       Professor Peanut
  
   LICENSE
-      See end of file.
+      MIT - See end of file.
  
   HISTORY
       While in alpha, cross version compatibility is not guaranteed. Do not replace
@@ -73,17 +78,49 @@ merge_result = """/*
       Let's cook this stonesoup together!!!
       
 */\n\n"""
+
+license = """/*
+ ------------------------------------------------------------------------------
+ Copyright (c) 2023 Professor Peanut
+ 
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ This copyright notice and permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ ------------------------------------------------------------------------------
+*/
+"""
+
 merge_result += "#ifndef INCLUDEDB_DB_H\n#define INCLUDEDB_DB_H\n\n"
+merge_result += open(config_file, "r").read()
+merge_result += "\n\n#ifdef INCLUDEDB_IMPLEMENTATION\n\n\n"
 for filename in unique:
-    f = open(filename[0], "r")
-    lines = f.readlines()
-    for code_line in lines:
-        if code_line.startswith("#include \"") == False:
-            merge_result += code_line
-   
+    if filename[0] != config_file:
+        f = open(filename[0], "r")
+        lines = f.readlines()
+        for code_line in lines:
+            if code_line.startswith("#include \"") == False:
+                merge_result += code_line
+        merge_result += "\n\n"
 
 merge_result += "#endif // INCLUDEDB_IMPLEMENTATION\n\n\n#endif // INCLUDEDB_DB_H\n"
+merge_result+= license
 
-open("./iii.h", "w+").write(merge_result + "\n")
+open("./includedb.h", "w+").write(merge_result + "\n")
+
+print("success")
 
 

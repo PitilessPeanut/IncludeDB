@@ -1,8 +1,8 @@
 #define INCLUDEDB_IMPLEMENTATION
+#define INCLUDEDB_CHUNK_SIZE 128 /* optional */
 #include "includedb.h"
 
-#include <string.h>
-//#include <stdlib.h>
+#include <stdio.h>
 
 int main(void)
 {
