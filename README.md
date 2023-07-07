@@ -35,10 +35,6 @@ LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
 <p>
 <img src="images/xmr.png" width="180px" alt="47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8">
 </p>
-ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd
-<p>
-<img src="images/eth.png" width="150px" alt="ethereum:0x32a42d02eB021914FE8928d4A60332970F96f2cd">
-</p>
 <em> &#129704; Let's cook this stonesoup together!!! &#129704; </em>
 
 

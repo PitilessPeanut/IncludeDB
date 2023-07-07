@@ -1,9 +1,10 @@
-#define INCLUDEDB_IMPLEMENTATION
-#define INCLUDEDB_CHUNK_SIZE 512 /* optional */
-#include "includedb.h"
-
 #include <string.h> /* memcpy() */
 #include <stdio.h>
+
+#define INCLUDEDB_IMPLEMENTATION
+#define INCLUDEDB_CHUNK_SIZE 32 /* optional */
+#include "includedb.h"
+
 
 int main(void)
 {
@@ -18,7 +19,7 @@ int main(void)
     // Iterate over all keys:
     int keylen, vallen;
     unsigned char *curKey = includedb_curGetKey(db, &keylen);
-    char *key, *record;
+    char *key=nullptr, *record=nullptr;
     while (curKey)
     {
         // Copy key to show later:
@@ -45,12 +46,18 @@ int main(void)
     free(record);
     free(key);
     
-    // Put new record:
-    const unsigned char newkey[] = {'h','e','l','l','o'};
-    const unsigned char newval[] = {'w','o','r','l','d'};
-    if (includedb_put(db, newkey, 5, newval, 5) == 1)
+    // Put new records:
+    const unsigned char newkey_1[] = {'h','e','l','l','o','1','\0'};
+    const unsigned char newval_1[] = {'w','o','r','l','d','1','\0'};
+    if (includedb_put(db, newkey_1, sizeof(newkey_1), newval_1, sizeof(newval_1)) == 1)
     {
-        printf("Error: %s \n", includedb_getError(db));
+        printf("Can't put %s: %s \n", newkey_1, includedb_getError(db));
+    }
+    const unsigned char newkey_2[] = {'h','e','l','l','o','2','\0'};
+    const unsigned char newval_2[] = {'w','o','r','l','d','2','\0'};
+    if (includedb_put(db, newkey_2, sizeof(newkey_2), newval_2, sizeof(newval_2)) == 1)
+    {
+        printf("Can't put %s: %s \n", newkey_2, includedb_getError(db));
     }
     
     // Done:

@@ -971,7 +971,7 @@ static includeDB *includedb_open(const char *filename)
 {
     COMPTIME unsigned char magic[] = "incldedb";
     COMPTIME unsigned v = INCLUDEDB_VER_NUM;
-    COMPTIME unsigned char versionStr[] = {(v>>24)&0xff, (v>>16)&0xff, (v>>8)&0xff, v&0xff};
+    COMPTIME unsigned char versionStr_BE[] = {v&0xff,(v>>8)&0xff,(v>>16)&0xff,(v>>24)&0xff};
     includeDB *newInstance = (includeDB *)includedb__malloc(sizeof(includeDB));
     if (!newInstance)
     {
@@ -993,21 +993,22 @@ static includeDB *includedb_open(const char *filename)
         // write signature
         includedb__fileWrite(&newInstance->file, magic, 8, 0);
         // write version
-        includedb__fileWrite(&newInstance->file, versionStr, 4, 8);
+        includedb__fileWrite(&newInstance->file, versionStr_BE, 4, 8);
         // write chunksize
         COMPTIME unsigned cs = INCLUDEDB_CHUNK_SIZE;
         COMPTIME unsigned char chunksize[] = {(cs>>24)&0xff, (cs>>16)&0xff, (cs>>8)&0xff, cs&0xff};
-        includedb__fileWrite(&newInstance->file, chunksize, 4, 12);
+        int written = includedb__fileWrite(&newInstance->file, chunksize, 4, 12);
         newInstance->chunkSize = cs;
         // write keys & "visits"
         COMPTIME unsigned char keysNvisits[] = {0,0,0,0,0,0,0,0};
         includedb__fileWrite(&newInstance->file, keysNvisits, 8, 16);
         newInstance->globalVisits = 0;
         // create seed
-        const unsigned sd = 6969; // todo get from time
+        const unsigned sd = 6987; // todo get from time
         const unsigned char seedStr[] = {(sd>>24)&0xff, (sd>>16)&0xff, (sd>>8)&0xff, sd&0xff};
         includedb__fileWrite(&newInstance->file, seedStr, 4, 24);
         newInstance->seed = sd;
+        (void)written;
     }
     else
     // open existing file:
@@ -1024,10 +1025,10 @@ static includeDB *includedb_open(const char *filename)
             return nullptr;
         }
         // read version vs minimum required
-        ok =       buf[ 8] == INCLUDEDB_VER_MAJOR;
-        ok = ok && buf[ 9] <= INCLUDEDB_VER_MINOR;
-        ok = ok && buf[10] <= INCLUDEDB_VER_PATCH_A;
-        ok = ok && buf[11] <= INCLUDEDB_VER_PATCH_B;
+        ok =       buf[11] == INCLUDEDB_VER_MAJOR;
+        ok = ok && buf[10] <= INCLUDEDB_VER_MINOR;
+        ok = ok && buf[ 9] <= INCLUDEDB_VER_PATCH_A;
+        ok = ok && buf[ 8] <= INCLUDEDB_VER_PATCH_B;
         if (!ok)
         {
             // todo upgrade version if possible!
@@ -1044,7 +1045,6 @@ static includeDB *includedb_open(const char *filename)
           // todo: not yet
         // read randseed
         newInstance->seed = (buf[24]<<24) | (buf[25]<<16) | (buf[26]<<8) | buf[27];
-        
         
         // chunkSize =
         // read filesz
@@ -1083,7 +1083,6 @@ static includeDB *includedb_open(const char *filename)
     newInstance->ec = INCLUDEDB__OK;
     
     
-    //printf("num ky %d \n", nKeys);
     
     // Build index:
     COMPTIME int dbHeaderSize = 128;
@@ -1098,7 +1097,6 @@ static includeDB *includedb_open(const char *filename)
         
         const unsigned priA=buf[12], priB=buf[13], priC=buf[14], priD=buf[15];
         const unsigned tombstone = (priA<<24) | (priB<<16) | (priC<< 8) | priD;
-        //printf("%d - hash: %d tomb: %d \n", i, keyhash, tombstone);
         
         
         // get position for the next record:
@@ -1125,15 +1123,18 @@ static void includedb_close(includeDB *instance)
     if (instance == nullptr)
         return;
         
-    unsigned char buf[4];
+    unsigned char keysNvisits[8] = {0};
     const int nk = instance->nKeys;
-    buf[0]=nk>>24; buf[1]=(nk>>16)&0xff; buf[2]=(nk>>8)&0xff; buf[3]=nk&0xff;
-    includedb__fileWrite(&instance->file, buf, 4, 12);
+    keysNvisits[0]=nk>>24; 
+    keysNvisits[1]=(nk>>16)&0xff; 
+    keysNvisits[2]=(nk>>8)&0xff; 
+    keysNvisits[3]=nk&0xff;
+    includedb__fileWrite(&instance->file, keysNvisits, 4, 16);
     
-    // todo write inm.!!
-    const unsigned sd = instance->seed;
-    buf[0]=sd>>24; buf[1]=(sd>>16)&0xff; buf[2]=(sd>>8)&0xff; buf[3]=sd&0xff;
-    includedb__fileWrite(&instance->file, buf, 4, 20);
+    // todo remove this, we already have a seed
+ //   const unsigned sd = instance->seed;
+   // buf[0]=sd>>24; buf[1]=(sd>>16)&0xff; buf[2]=(sd>>8)&0xff; buf[3]=sd&0xff;
+  //  includedb__fileWrite(&instance->file, buf, 4, 20);
     
     includedb__free(instance->buffer);
     includedb__fileClose(&instance->file);
@@ -1174,6 +1175,10 @@ static const char *includedb_getError(includeDB *instance)
 /*++++++++++++++++++++++++++++++++++++++*/
 /*                                Tests */
 /*++++++++++++++++++++++++++++++++++++++*/
+#if !defined(DISABLE_TESTS)
+
+
+#endif // !defined(DISABLE_TESTS)
 
 
 
