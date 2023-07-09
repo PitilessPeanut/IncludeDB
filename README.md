@@ -24,7 +24,7 @@ Progress of financing (until next update)
 
 lnbc169690n1pj2jm89pp5wxlx47arg3nu2sajfdu5uq3u2dgs0d5hvzhv60rv5lzu8h5h4z5qdqu2askcmr9wssx7e3q2dshgmmndp5scqzzsxqyz5vqsp52m4d5w2gwauz4nhn4jypempvq4wuxef7unvzgmfppggwpdpn5j3s9qyyssqveag435teq0uhfp4mgzxp8p2q534kans7ns4sgegvq5qrg628djjk4s3jnmu72d5wvnclm03ts5u883jv6jvqnj9847sk03yplj9thspdgp6v3
 <p>
-<img src="images/lightning.png" width="150px" alt="lnbc169690n1pj2jm89pp5wxlx47arg3nu2sajfdu5uq3u2dgs0d5hvzhv60rv5lzu8h5h4z5qdqu2askcmr9wssx7e3q2dshgmmndp5scqzzsxqyz5vqsp52m4d5w2gwauz4nhn4jypempvq4wuxef7unvzgmfppggwpdpn5j3s9qyyssqveag435teq0uhfp4mgzxp8p2q534kans7ns4sgegvq5qrg628djjk4s3jnmu72d5wvnclm03ts5u883jv6jvqnj9847sk03yplj9thspdgp6v3">
+<img src="images/lightning.png" width="180px" alt="lnbc169690n1pj2jm89pp5wxlx47arg3nu2sajfdu5uq3u2dgs0d5hvzhv60rv5lzu8h5h4z5qdqu2askcmr9wssx7e3q2dshgmmndp5scqzzsxqyz5vqsp52m4d5w2gwauz4nhn4jypempvq4wuxef7unvzgmfppggwpdpn5j3s9qyyssqveag435teq0uhfp4mgzxp8p2q534kans7ns4sgegvq5qrg628djjk4s3jnmu72d5wvnclm03ts5u883jv6jvqnj9847sk03yplj9thspdgp6v3">
 </p>
 bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
 <p>
@@ -66,6 +66,7 @@ LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
   - [Compile-time testing](#compile-time-tests)
 - [Using](#using)
   - [Screenshots](#screenshots)
+  - [Javascript visualization](javascript-visualization)
   - [Known issues](#known-issues)
 - [Contributing](#contributing)
 - [Similar projects](#similar-projects)
@@ -101,6 +102,8 @@ Usage:
 // Create new or open existing. NULL is returned 
 // in case the file couldn't be opened or created:
 includeDB *mydb = includedb_open("hello.dat");
+
+// read/write/etc...
 
 // Make sure to call close() after done using:
 includedb_close(mydb);

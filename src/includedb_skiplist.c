@@ -149,10 +149,23 @@ static constexpr includedb__skipnode *includedb__findSkipnode(includeDB *instanc
 
 constexpr unsigned includedb__testSlots()
 {
-    includeDB testDB{ .mappedArray=nullptr,
+    includedb__bitvec tstVec;
+    includeDB testDB{ .buffer=nullptr,
+                      .szBuf=0,
+                      .occupied=tstVec,
                       .chunkSize=0,
+                      .globalVisits=0,
                       .nodeVec=nullptr,
-                      .seed=0
+                      .head={0},
+                      .nKeys=0,
+                      .nAllocated=0,
+                      .includedb__nodevecAlloc=nullptr,
+                      .seed=0,
+                      .mappedArray=nullptr,
+                      .includedb__write=nullptr,
+                      .includedb__read=nullptr,
+                      .cursor=0,
+                      .ec=INCLUDEDB__OK
                     };
     unsigned bitvecBits[3/* *32 */] = {0};
     testDB.occupied.bitvec = bitvecBits;
@@ -222,16 +235,28 @@ constexpr unsigned includedb__testSkiplist()
 {
     // setup:
     includedb__skipnode testNodes[32];
-    includeDB testDB{ .mappedArray=nullptr,
+    includedb__bitvec testVec;
+    includeDB testDB{ .buffer=nullptr,
+                      .szBuf=0,
+                      .occupied=testVec,
                       .chunkSize=0,
+                      .globalVisits=0,
                       .nodeVec=testNodes,
+                      .head={0},
+                      .nKeys=0,
+                      .nAllocated=0,
                       .includedb__nodevecAlloc=[](includeDB *instance, int newSize)->int
                                                {
                                                    (void)instance;
                                                    (void)newSize;
                                                    return 0;
                                                },
-                      .seed=0
+                      .seed=0,
+                      .mappedArray=nullptr,
+                      .includedb__write=nullptr,
+                      .includedb__read=nullptr,
+                      .cursor=0,
+                      .ec=INCLUDEDB__OK
                     };
     // start testing:
     includedb__insertNewSkipnode(&testDB, 111, 0);
