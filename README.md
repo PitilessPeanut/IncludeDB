@@ -13,13 +13,6 @@ small games.
 This project is entirely self-financed and we NEED your support!
 Ensure smooth-sailing & regular updates by donating &#129372;s below: 
 
-Progress of financing (until next update)
-<p>
-<img src="images/p01.png" width="80%" alt="">
-</p>
-<b>Received so far: 0</b>
-<em>Updates to this are hand-tracked from all support added together. Trying to be as accurate as we can, check addresses below</em>
-
 <a href="https://www.buymeacoffe.com/professorPeanut" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Peanut" height="41" width="174"></a>
 
 lnbc169690n1pj2jm89pp5wxlx47arg3nu2sajfdu5uq3u2dgs0d5hvzhv60rv5lzu8h5h4z5qdqu2askcmr9wssx7e3q2dshgmmndp5scqzzsxqyz5vqsp52m4d5w2gwauz4nhn4jypempvq4wuxef7unvzgmfppggwpdpn5j3s9qyyssqveag435teq0uhfp4mgzxp8p2q534kans7ns4sgegvq5qrg628djjk4s3jnmu72d5wvnclm03ts5u883jv6jvqnj9847sk03yplj9thspdgp6v3
