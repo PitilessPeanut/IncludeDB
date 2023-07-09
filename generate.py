@@ -3,12 +3,12 @@
 config_file = "src/includedb_config.h"
 
 files = [
-("src/includedb_core.h"    , [                                                   ]),
-("src/includedb_bloom.c"   , ["src/includedb_config.h","src/includedb_bloom.h"]),
-("src/includedb_bitvec.c"  , ["src/includedb_config.h","src/includedb_bitvec.h"  ]),
-("src/includedb_skiplist.c", ["src/includedb_config.h","src/includedb_skiplist.h"]),
-("src/includedb_fileops.c" , ["src/includedb_config.h","src/includedb_fileops.h" ]),
-("src/includedb_core.c"    , ["src/includedb_config.h","src/includedb_core.h"    ])   
+("src/includedb_core.h"    , [                        ]),
+("src/includedb_bloom.c"   , ["src/includedb_config.h"]),
+("src/includedb_bitvec.c"  , ["src/includedb_config.h"]),
+("src/includedb_skiplist.c", ["src/includedb_config.h"]),
+("src/includedb_fileops.c" , ["src/includedb_config.h"]),
+("src/includedb_core.c"    , ["src/includedb_config.h"])
 ]
 
 # for testing only:
@@ -63,18 +63,20 @@ merge_result = """/*
       MIT - See end of file.
  
   HISTORY
-      While in alpha, cross version compatibility is not guaranteed. Do not replace
+      While in alpha cross version compatibility is not guaranteed. Do not replace
       this file if you need to keep your database readable.
 
       0.1.1  Splitting into multiple files, use generator.py to create single-header!
       0.1.0  Initial release
  
   PEANUTS
-      BTC:  bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
-      BCH:  qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0
-      ETH:  0x32a42d02eB021914FE8928d4A60332970F96f2cd
-      LTC:  LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
-      XMR:  47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8
+      SPONSORS:     https://github.com/sponsors/Professor-Peanut
+      BUYMEACOFFEE: https://www.buymeacoffe.com/professorPeanut
+      LIGHTNING:    lnbc169690n1pj2jm89pp5wxlx47arg3nu2sajfdu5uq3u2dgs0d5hvzhv60rv5lzu8h5h4z5qdqu2askcmr9wssx7e3q2dshgmmndp5scqzzsxqyz5vqsp52m4d5w2gwauz4nhn4jypempvq4wuxef7unvzgmfppggwpdpn5j3s9qyyssqveag435teq0uhfp4mgzxp8p2q534kans7ns4sgegvq5qrg628djjk4s3jnmu72d5wvnclm03ts5u883jv6jvqnj9847sk03yplj9thspdgp6v3
+      BTC:          bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
+      BCH:          qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0
+      LTC:          LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
+      XMR:          47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8
       Let's cook this stonesoup together!!!
       
 */\n\n"""

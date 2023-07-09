@@ -1,20 +1,22 @@
 #include "includedb_skiplist.h"
 
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 /*                                slots */
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 static constexpr int includedb__gatherSlots(includeDB *instance, int requiredSlots)
 {
     bool haveAvail = false;
     int location = 0;
     includedb__bitvec *bitvec = &instance->occupied;
     for (; location<((bitvec->szVecIn32Chunks*32)-requiredSlots) && !haveAvail; ++location)
+    {
         if (includedb__bitvecCheck(bitvec, location) == 0)
         {
             haveAvail = true;
             for (int i=1; i<requiredSlots-1; ++i)
                 haveAvail = haveAvail && (includedb__bitvecCheck(bitvec, location+i) == 0);
         }
+    }
     location -= 1;
     if (!haveAvail)
     {
@@ -47,9 +49,9 @@ static int includedb__nodevecAlloc(includeDB *instance, int newSize)
 }
 
 
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 /*                       skiplist impl. */
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 static constexpr int includedb__getNewKeyPos(includeDB *instance)
 {
     if (instance->nKeys == instance->nAllocated)
@@ -68,14 +70,14 @@ static constexpr int includedb__getNewKeyPos(includeDB *instance)
 static constexpr void includedb__insertSkipnode(includeDB *instance, unsigned key, int pos, int layer)
 {
     // special case: key smaller than any before:
-    if (key < instance->nodeVec[instance->headD].nodeid)
+    if (key < instance->nodeVec[instance->head[ layer ]].nodeid)
     {
-        instance->nodeVec[pos].next = instance->headD;
-        instance->headD = pos;
+        instance->nodeVec[pos].next = instance->head[ layer ];
+        instance->head[ layer ] = pos;
         return;
     }
     
-    int current = instance->headD;
+    int current = instance->head[ layer ];
     int next = 0;
     for (int i=0; i<instance->nKeys-2; ++i)
     {
@@ -108,17 +110,24 @@ static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsi
     for (int i=0; i<instance->nKeys; ++i)
     {
         if (layer<3 && (prev==current || instance->nodeVec[current].nodeid>key))
+        {
             return includedb__findPrevSkipnode(instance, key, instance->nodeVec[current].next, layer+1);
+        }
         else if (instance->nodeVec[current].nodeid == key)
         {
             instance->nodeVec[current].visits += 1;
             instance->globalVisits += 1;
+            const int threshold = instance->globalVisits - ((instance->globalVisits/4)*layer);
+            if ((instance->nodeVec[current].visits > threshold) && (layer>0))
+                includedb__insertSkipnode(instance, key, current, layer-1);
             //if (((instance->nodeVec[current].visits*100) / instance->globalVisits) > 20)
                 //icldb__insertSkipnode(instance, key, current, layer-1);
             return current;
         }
         else if (instance->nodeVec[current].nodeid >= key)
+        {
             break;
+        }
         prev = current;
         current = instance->nodeVec[current].next;
     }
@@ -127,15 +136,15 @@ static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsi
 
 static constexpr includedb__skipnode *includedb__findSkipnode(includeDB *instance, const unsigned key)
 {
-    //const int res = icldb__findPrevSkipnode(instance, key, instance->headA, 0);
-    const int res = includedb__findPrevSkipnode(instance, key, instance->headD, 3);
+    //const int res = includedb__findPrevSkipnode(instance, key, instance->headA, 0);
+    const int res = includedb__findPrevSkipnode(instance, key, instance->head[3], 3);
     return instance->nodeVec[res].nodeid == key ? &instance->nodeVec[res] : nullptr;
 }
 
 
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 /*                                Tests */
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 #if !defined(DISABLE_TESTS)
 
 constexpr unsigned includedb__testSlots()
@@ -190,12 +199,12 @@ constexpr unsigned includedb__testSlots()
     
     
     return  TEST_HAVE_ZERO_SLOTS
-         | (TEST_TWO_SLOTS_OCCUPIED<< 1)
-         | (TEST_LOCATION_TWO<< 2)
-         | (TEST_LOCATION_THREE<< 3)
-         | (TEST_LOCATION_EIGHT<< 4)
-         | (TEST_LOCATION_DEEP<< 5)
-         | (TEST_ALL_FLAGS_SET<< 6)
+         | (TEST_TWO_SLOTS_OCCUPIED << 1)
+         | (TEST_LOCATION_TWO       << 2)
+         | (TEST_LOCATION_THREE     << 3)
+         | (TEST_LOCATION_EIGHT     << 4)
+         | (TEST_LOCATION_DEEP      << 5)
+         | (TEST_ALL_FLAGS_SET      << 6)
          ;
 }
 constexpr unsigned resSlots = includedb__testSlots();
@@ -226,11 +235,11 @@ constexpr unsigned includedb__testSkiplist()
                     };
     // start testing:
     includedb__insertNewSkipnode(&testDB, 111, 0);
-    const bool TEST_HEAD_IS_ZERO = testDB.headD == 0;
+    const bool TEST_HEAD_IS_ZERO = testDB.head[3] == 0;
     includedb__insertNewSkipnode(&testDB, 333, 1);
     const bool TEST_NODE_ADD =  testNodes[0].nodeid == 111
-                             && testNodes[testDB.headD].nodeid == 111
-                             && testDB.headD == 0
+                             && testNodes[testDB.head[3]].nodeid == 111
+                             && testDB.head[3] == 0
                              && testNodes[0].next == 1
                              && testNodes[1].next == 0
                              && testNodes[testNodes[0].next].nodeid == 333;

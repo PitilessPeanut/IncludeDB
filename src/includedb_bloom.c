@@ -17,7 +17,7 @@ typedef struct includedb__bloom
 constexpr void includedb__bloomPut(includedb__bloom *bloom, includedb__inttype hash)
 {
     bloom->bitmap |= hash;
-    for (int i=0; i<N_SLOTS; i+=8)
+    for (size_t i=0; i<N_SLOTS; i+=8)
     {
         bloom->counters[i+0] += hash & 1;  hash >>= 1;
         bloom->counters[i+1] += hash & 1;  hash >>= 1;
@@ -33,7 +33,7 @@ constexpr void includedb__bloomPut(includedb__bloom *bloom, includedb__inttype h
 constexpr void includedb__bloomRemove(includedb__bloom *bloom, includedb__inttype hash)
 {
     includedb__inttype mask = 0;
-    for (int i=0; i<N_SLOTS; i+=8)
+    for (size_t i=0; i<N_SLOTS; i+=8)
     {
         bloom->counters[i+0] -= hash & 1; hash >>= 1;
         bloom->counters[i+1] -= hash & 1; hash >>= 1;

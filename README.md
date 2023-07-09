@@ -14,11 +14,18 @@ This project is entirely self-financed and we NEED your support!
 Ensure smooth-sailing & regular updates by donating &#129372;s below: 
 
 Progress of financing (until next update)
-
-<b>Received so far: 0/250 usd</b>
-<b>Remaining: 250</b>
+<p>
+<img src="images/p01.png" width="80%" alt="">
+</p>
+<b>Received so far: 0</b>
 <em>Updates to this are hand-tracked from all support added together. Trying to be as accurate as we can, check addresses below</em>
 
+<a href="https://www.buymeacoffe.com/professorPeanut" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Peanut" height="41" width="174"></a>
+
+lnbc169690n1pj2jm89pp5wxlx47arg3nu2sajfdu5uq3u2dgs0d5hvzhv60rv5lzu8h5h4z5qdqu2askcmr9wssx7e3q2dshgmmndp5scqzzsxqyz5vqsp52m4d5w2gwauz4nhn4jypempvq4wuxef7unvzgmfppggwpdpn5j3s9qyyssqveag435teq0uhfp4mgzxp8p2q534kans7ns4sgegvq5qrg628djjk4s3jnmu72d5wvnclm03ts5u883jv6jvqnj9847sk03yplj9thspdgp6v3
+<p>
+<img src="images/lightning.png" width="150px" alt="lnbc169690n1pj2jm89pp5wxlx47arg3nu2sajfdu5uq3u2dgs0d5hvzhv60rv5lzu8h5h4z5qdqu2askcmr9wssx7e3q2dshgmmndp5scqzzsxqyz5vqsp52m4d5w2gwauz4nhn4jypempvq4wuxef7unvzgmfppggwpdpn5j3s9qyyssqveag435teq0uhfp4mgzxp8p2q534kans7ns4sgegvq5qrg628djjk4s3jnmu72d5wvnclm03ts5u883jv6jvqnj9847sk03yplj9thspdgp6v3">
+</p>
 bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
 <p>
 <img src="images/btc.png" width="150px" alt="bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n">
@@ -58,10 +65,11 @@ LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
   - [Demo](#demo)
   - [Compile-time testing](#compile-time-tests)
 - [Using](#using)
-  - [Visualization using Javascript](#javascript-visualization)
+  - [Screenshots](#screenshots)
   - [Known issues](#known-issues)
 - [Contributing](#contributing)
 - [Similar projects](#similar-projects)
+- [Sponsors](#sponsors)
 
 ## Building
 A build process is not required, simply drop *includedb.h* into your project and use.
@@ -101,19 +109,39 @@ The database can also be operated entirely during compile time, providing you wi
 
 *Attention!* All operations are synchronous, locking has not yet been implemented. See above^ to help financing!
 
+```
+Super easy to use, only 7 functions needed:
 
+includedb_put(instance, key, keylen, val, vallen)
+includedb_get(instance, key, keylen, vallen)
+includedb_next(instance)
+includedb_curGetKey(instance, keylen)
+includedb_open(filename)
+includedb_close(instance)
+includedb_getError(instance)
+
+WARNING! None of these are thread-safe (yet!) Make sure to avoid concurrent access*
+
+*until I have found the time to fix this...
+```
+
+
+### Screenshots
 #### Javascript visualization
-*algo-visualize.js* is provided and can be run on algorithm-visualizer.org to show the mechanism of the underlying algorithm. 
-
+*algo-visualize.js* is provided and can be run on https://algorithm-visualizer.org/ to show the mechanism of the underlying algorithm. 
+<p>
+<img src="images/algo.png" width="80%" alt="visualization of the underlying algorithm on algorithm-visualizer.org">
+</p>
 
 #### Known issues
 Depending on available resources these will be fixed over time.
 Issues:
 - 'includedb_put()' may call 'includedb__write()' with uninitialized data 
 - bloomfilters implemented but not used
-- missing node promotions
+- node promotion overflow bug
 - missing tests
-- missing locks
+- missing locks (threads)
+- missing locks (file)
 - missing reverse cursor
 - missing mmap
 - missing error check/correction
@@ -139,3 +167,5 @@ IncludeDB is a "storage engine", not a full database. Designed specifically for 
 
 [Sparkey](https://github.com/spotify/sparkey)
                                                                                                   
+## Sponsors
+

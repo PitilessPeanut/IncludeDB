@@ -26,9 +26,6 @@
   #endif
 #endif
 
-// Error:
-static const char *includedb__errorMsg;
-
 
 #ifndef INCLUDEDB_MALLOC
   #include <stdlib.h>
@@ -42,6 +39,19 @@ static const char *includedb__errorMsg;
 
 #ifndef INCLUDEDB_HASH
   #define INCLUDEDB_HASH(key,keylen,seed)   includedb__xx32(key,keylen,seed)
+#endif
+
+
+#ifndef INCLUDEDB_LOCKS
+  #if defined(__cplusplus)
+    #include <shared_mutex>
+  #else
+    #if defined(_WIN32)
+    #else
+      #include <pthread.h>
+    #endif
+  #endif
+  #define INCLUDEDB_LOCKS
 #endif
 
 
@@ -128,6 +138,9 @@ enum includedb__errorCodes
     INCLUDEDB__KEY_NOT_FOUND
 };
 
+// Error:
+static const char *includedb__errorMsg;
+
 
 struct includedb__bitvec;
 
@@ -170,7 +183,7 @@ typedef struct includeDB
 
     // List:
     includedb__skipnode *nodeVec;
-    int headA, headB, headC, headD;
+    int head[4];
     int nKeys;
     int nAllocated;
     pincludedb__nodevecAlloc includedb__nodevecAlloc;
@@ -202,7 +215,7 @@ static constexpr int includedb_error = 1;
 /*
  ------------------------------------------------------------------------------
     Public interface
-    All operations are synchronous!! 
+    (All operations are synchronous!!)
  ------------------------------------------------------------------------------
 */
 // Add a new record, returns includedb_error on fail
@@ -228,6 +241,7 @@ static void includedb_close(includeDB *instance);
 
 // Get error
 static const char *includedb_getError(includeDB *instance);
+
 
 
 

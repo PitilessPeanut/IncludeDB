@@ -14,18 +14,20 @@
       MIT - See end of file.
  
   HISTORY
-      While in alpha, cross version compatibility is not guaranteed. Do not replace
+      While in alpha cross version compatibility is not guaranteed. Do not replace
       this file if you need to keep your database readable.
 
       0.1.1  Splitting into multiple files, use generator.py to create single-header!
       0.1.0  Initial release
  
   PEANUTS
-      BTC:  bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
-      BCH:  qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0
-      ETH:  0x32a42d02eB021914FE8928d4A60332970F96f2cd
-      LTC:  LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
-      XMR:  47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8
+      SPONSORS:     https://github.com/sponsors/Professor-Peanut
+      BUYMEACOFFEE: https://www.buymeacoffe.com/professorPeanut
+      LIGHTNING:    lnbc169690n1pj2jm89pp5wxlx47arg3nu2sajfdu5uq3u2dgs0d5hvzhv60rv5lzu8h5h4z5qdqu2askcmr9wssx7e3q2dshgmmndp5scqzzsxqyz5vqsp52m4d5w2gwauz4nhn4jypempvq4wuxef7unvzgmfppggwpdpn5j3s9qyyssqveag435teq0uhfp4mgzxp8p2q534kans7ns4sgegvq5qrg628djjk4s3jnmu72d5wvnclm03ts5u883jv6jvqnj9847sk03yplj9thspdgp6v3
+      BTC:          bc1qpv63qlpec3x3lh2cejmr5audh2c6j2ar3ptvy235hld3f2wwzr5sg4qr5n
+      BCH:          qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0
+      LTC:          LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
+      XMR:          47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8
       Let's cook this stonesoup together!!!
       
 */
@@ -61,9 +63,6 @@
   #endif
 #endif
 
-// Error:
-static const char *includedb__errorMsg;
-
 
 #ifndef INCLUDEDB_MALLOC
   #include <stdlib.h>
@@ -77,6 +76,19 @@ static const char *includedb__errorMsg;
 
 #ifndef INCLUDEDB_HASH
   #define INCLUDEDB_HASH(key,keylen,seed)   includedb__xx32(key,keylen,seed)
+#endif
+
+
+#ifndef INCLUDEDB_LOCKS
+  #if defined(__cplusplus)
+    #include <shared_mutex>
+  #else
+    #if defined(_WIN32)
+    #else
+      #include <pthread.h>
+    #endif
+  #endif
+  #define INCLUDEDB_LOCKS
 #endif
 
 
@@ -163,6 +175,9 @@ enum includedb__errorCodes
     INCLUDEDB__KEY_NOT_FOUND
 };
 
+// Error:
+static const char *includedb__errorMsg;
+
 
 struct includedb__bitvec;
 
@@ -205,7 +220,7 @@ typedef struct includeDB
 
     // List:
     includedb__skipnode *nodeVec;
-    int headA, headB, headC, headD;
+    int head[4];
     int nKeys;
     int nAllocated;
     pincludedb__nodevecAlloc includedb__nodevecAlloc;
@@ -237,7 +252,7 @@ static constexpr int includedb_error = 1;
 /*
  ------------------------------------------------------------------------------
     Public interface
-    All operations are synchronous!! 
+    (All operations are synchronous!!)
  ------------------------------------------------------------------------------
 */
 // Add a new record, returns includedb_error on fail
@@ -263,6 +278,7 @@ static void includedb_close(includeDB *instance);
 
 // Get error
 static const char *includedb_getError(includeDB *instance);
+
 
 
 
@@ -378,7 +394,7 @@ typedef struct includedb__bloom
 constexpr void includedb__bloomPut(includedb__bloom *bloom, includedb__inttype hash)
 {
     bloom->bitmap |= hash;
-    for (int i=0; i<N_SLOTS; i+=8)
+    for (size_t i=0; i<N_SLOTS; i+=8)
     {
         bloom->counters[i+0] += hash & 1;  hash >>= 1;
         bloom->counters[i+1] += hash & 1;  hash >>= 1;
@@ -394,7 +410,7 @@ constexpr void includedb__bloomPut(includedb__bloom *bloom, includedb__inttype h
 constexpr void includedb__bloomRemove(includedb__bloom *bloom, includedb__inttype hash)
 {
     includedb__inttype mask = 0;
-    for (int i=0; i<N_SLOTS; i+=8)
+    for (size_t i=0; i<N_SLOTS; i+=8)
     {
         bloom->counters[i+0] -= hash & 1; hash >>= 1;
         bloom->counters[i+1] -= hash & 1; hash >>= 1;
@@ -522,21 +538,23 @@ static_assert(resBitvec&2, "bit 64 not correct");
 
 
 
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 /*                                slots */
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 static constexpr int includedb__gatherSlots(includeDB *instance, int requiredSlots)
 {
     bool haveAvail = false;
     int location = 0;
     includedb__bitvec *bitvec = &instance->occupied;
     for (; location<((bitvec->szVecIn32Chunks*32)-requiredSlots) && !haveAvail; ++location)
+    {
         if (includedb__bitvecCheck(bitvec, location) == 0)
         {
             haveAvail = true;
             for (int i=1; i<requiredSlots-1; ++i)
                 haveAvail = haveAvail && (includedb__bitvecCheck(bitvec, location+i) == 0);
         }
+    }
     location -= 1;
     if (!haveAvail)
     {
@@ -569,9 +587,9 @@ static int includedb__nodevecAlloc(includeDB *instance, int newSize)
 }
 
 
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 /*                       skiplist impl. */
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 static constexpr int includedb__getNewKeyPos(includeDB *instance)
 {
     if (instance->nKeys == instance->nAllocated)
@@ -590,14 +608,14 @@ static constexpr int includedb__getNewKeyPos(includeDB *instance)
 static constexpr void includedb__insertSkipnode(includeDB *instance, unsigned key, int pos, int layer)
 {
     // special case: key smaller than any before:
-    if (key < instance->nodeVec[instance->headD].nodeid)
+    if (key < instance->nodeVec[instance->head[ layer ]].nodeid)
     {
-        instance->nodeVec[pos].next = instance->headD;
-        instance->headD = pos;
+        instance->nodeVec[pos].next = instance->head[ layer ];
+        instance->head[ layer ] = pos;
         return;
     }
     
-    int current = instance->headD;
+    int current = instance->head[ layer ];
     int next = 0;
     for (int i=0; i<instance->nKeys-2; ++i)
     {
@@ -630,17 +648,24 @@ static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsi
     for (int i=0; i<instance->nKeys; ++i)
     {
         if (layer<3 && (prev==current || instance->nodeVec[current].nodeid>key))
+        {
             return includedb__findPrevSkipnode(instance, key, instance->nodeVec[current].next, layer+1);
+        }
         else if (instance->nodeVec[current].nodeid == key)
         {
             instance->nodeVec[current].visits += 1;
             instance->globalVisits += 1;
+            const int threshold = instance->globalVisits - ((instance->globalVisits/4)*layer);
+            if ((instance->nodeVec[current].visits > threshold) && (layer>0))
+                includedb__insertSkipnode(instance, key, current, layer-1);
             //if (((instance->nodeVec[current].visits*100) / instance->globalVisits) > 20)
                 //icldb__insertSkipnode(instance, key, current, layer-1);
             return current;
         }
         else if (instance->nodeVec[current].nodeid >= key)
+        {
             break;
+        }
         prev = current;
         current = instance->nodeVec[current].next;
     }
@@ -649,15 +674,15 @@ static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsi
 
 static constexpr includedb__skipnode *includedb__findSkipnode(includeDB *instance, const unsigned key)
 {
-    //const int res = icldb__findPrevSkipnode(instance, key, instance->headA, 0);
-    const int res = includedb__findPrevSkipnode(instance, key, instance->headD, 3);
+    //const int res = includedb__findPrevSkipnode(instance, key, instance->headA, 0);
+    const int res = includedb__findPrevSkipnode(instance, key, instance->head[3], 3);
     return instance->nodeVec[res].nodeid == key ? &instance->nodeVec[res] : nullptr;
 }
 
 
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 /*                                Tests */
-/*++++++++++++++++++++++++++++++++++++++*/
+/****************************************/
 #if !defined(DISABLE_TESTS)
 
 constexpr unsigned includedb__testSlots()
@@ -712,12 +737,12 @@ constexpr unsigned includedb__testSlots()
     
     
     return  TEST_HAVE_ZERO_SLOTS
-         | (TEST_TWO_SLOTS_OCCUPIED<< 1)
-         | (TEST_LOCATION_TWO<< 2)
-         | (TEST_LOCATION_THREE<< 3)
-         | (TEST_LOCATION_EIGHT<< 4)
-         | (TEST_LOCATION_DEEP<< 5)
-         | (TEST_ALL_FLAGS_SET<< 6)
+         | (TEST_TWO_SLOTS_OCCUPIED << 1)
+         | (TEST_LOCATION_TWO       << 2)
+         | (TEST_LOCATION_THREE     << 3)
+         | (TEST_LOCATION_EIGHT     << 4)
+         | (TEST_LOCATION_DEEP      << 5)
+         | (TEST_ALL_FLAGS_SET      << 6)
          ;
 }
 constexpr unsigned resSlots = includedb__testSlots();
@@ -748,11 +773,11 @@ constexpr unsigned includedb__testSkiplist()
                     };
     // start testing:
     includedb__insertNewSkipnode(&testDB, 111, 0);
-    const bool TEST_HEAD_IS_ZERO = testDB.headD == 0;
+    const bool TEST_HEAD_IS_ZERO = testDB.head[3] == 0;
     includedb__insertNewSkipnode(&testDB, 333, 1);
     const bool TEST_NODE_ADD =  testNodes[0].nodeid == 111
-                             && testNodes[testDB.headD].nodeid == 111
-                             && testDB.headD == 0
+                             && testNodes[testDB.head[3]].nodeid == 111
+                             && testDB.head[3] == 0
                              && testNodes[0].next == 1
                              && testNodes[1].next == 0
                              && testNodes[testNodes[0].next].nodeid == 333;
@@ -1001,12 +1026,12 @@ static includeDB *includedb_open(const char *filename)
         newInstance->chunkSize = cs;
         // write keys & "visits"
         COMPTIME unsigned char keysNvisits[] = {0,0,0,0,0,0,0,0};
-        includedb__fileWrite(&newInstance->file, keysNvisits, 8, 16);
+        written = includedb__fileWrite(&newInstance->file, keysNvisits, 8, 16);
         newInstance->globalVisits = 0;
         // create seed
         const unsigned sd = 6987; // todo get from time
         const unsigned char seedStr[] = {(sd>>24)&0xff, (sd>>16)&0xff, (sd>>8)&0xff, sd&0xff};
-        includedb__fileWrite(&newInstance->file, seedStr, 4, 24);
+        written = includedb__fileWrite(&newInstance->file, seedStr, 4, 24);
         newInstance->seed = sd;
         (void)written;
     }
@@ -1068,9 +1093,11 @@ static includeDB *includedb_open(const char *filename)
     newInstance->nAllocated = nInitialBits;
     newInstance->includedb__nodevecAlloc = includedb__nodevecAlloc;
     
-    // todo: init heads
-    newInstance->headD = 0;
-    
+    // Init heads
+    newInstance->head[0] = 0;
+    newInstance->head[1] = 0;
+    newInstance->head[2] = 0;
+    newInstance->head[3] = 0;
     
     newInstance->nKeys = 0;
     // put cursor to the start
@@ -1081,7 +1108,6 @@ static includeDB *includedb_open(const char *filename)
     //    newInstance->bloomcounters[i] = 0;
     // reset error
     newInstance->ec = INCLUDEDB__OK;
-    
     
     
     // Build index:
@@ -1096,8 +1122,7 @@ static includeDB *includedb_open(const char *filename)
         
         
         const unsigned priA=buf[12], priB=buf[13], priC=buf[14], priD=buf[15];
-        const unsigned tombstone = (priA<<24) | (priB<<16) | (priC<< 8) | priD;
-        
+        const unsigned tombstone = (priA<<24) | (priB<<16) | (priC<< 8) | priD;        
         
         // get position for the next record:
         const unsigned keylen = (buf[ 4]<<24) | (buf[ 5]<<16) | (buf[ 6]<<8) | buf[ 7];
@@ -1129,12 +1154,7 @@ static void includedb_close(includeDB *instance)
     keysNvisits[1]=(nk>>16)&0xff; 
     keysNvisits[2]=(nk>>8)&0xff; 
     keysNvisits[3]=nk&0xff;
-    includedb__fileWrite(&instance->file, keysNvisits, 4, 16);
-    
-    // todo remove this, we already have a seed
- //   const unsigned sd = instance->seed;
-   // buf[0]=sd>>24; buf[1]=(sd>>16)&0xff; buf[2]=(sd>>8)&0xff; buf[3]=sd&0xff;
-  //  includedb__fileWrite(&instance->file, buf, 4, 20);
+    includedb__fileWrite(&instance->file, keysNvisits, 8, 16);
     
     includedb__free(instance->buffer);
     includedb__fileClose(&instance->file);

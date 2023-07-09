@@ -151,15 +151,14 @@ static includeDB *includedb_open(const char *filename)
         COMPTIME unsigned char chunksize[] = {(cs>>24)&0xff, (cs>>16)&0xff, (cs>>8)&0xff, cs&0xff};
         int written = includedb__fileWrite(&newInstance->file, chunksize, 4, 12);
         newInstance->chunkSize = cs;
-        printf("cs %d written %d \n", newInstance->chunkSize, written);
         // write keys & "visits"
         COMPTIME unsigned char keysNvisits[] = {0,0,0,0,0,0,0,0};
-        includedb__fileWrite(&newInstance->file, keysNvisits, 8, 16);
+        written = includedb__fileWrite(&newInstance->file, keysNvisits, 8, 16);
         newInstance->globalVisits = 0;
         // create seed
         const unsigned sd = 6987; // todo get from time
         const unsigned char seedStr[] = {(sd>>24)&0xff, (sd>>16)&0xff, (sd>>8)&0xff, sd&0xff};
-        includedb__fileWrite(&newInstance->file, seedStr, 4, 24);
+        written = includedb__fileWrite(&newInstance->file, seedStr, 4, 24);
         newInstance->seed = sd;
         (void)written;
     }
@@ -225,9 +224,11 @@ static includeDB *includedb_open(const char *filename)
     newInstance->nAllocated = nInitialBits;
     newInstance->includedb__nodevecAlloc = includedb__nodevecAlloc;
     
-    // todo: init heads
-    newInstance->headD = 0;
-    
+    // Init heads
+    newInstance->head[0] = 0;
+    newInstance->head[1] = 0;
+    newInstance->head[2] = 0;
+    newInstance->head[3] = 0;
     
     newInstance->nKeys = 0;
     // put cursor to the start
@@ -255,7 +256,7 @@ static includeDB *includedb_open(const char *filename)
         
         const unsigned priA=buf[12], priB=buf[13], priC=buf[14], priD=buf[15];
         const unsigned tombstone = (priA<<24) | (priB<<16) | (priC<< 8) | priD;
-        printf("%d - hash: %d tomb: %d \n", i, keyhash, tombstone);
+        printf("%d - hash: %d tomb: %s \n", i, keyhash, tombstone==0?"yes":"no");
         
         
         // get position for the next record:
@@ -288,13 +289,8 @@ static void includedb_close(includeDB *instance)
     keysNvisits[1]=(nk>>16)&0xff; 
     keysNvisits[2]=(nk>>8)&0xff; 
     keysNvisits[3]=nk&0xff;
-    includedb__fileWrite(&instance->file, keysNvisits, 4, 16);
+    includedb__fileWrite(&instance->file, keysNvisits, 8, 16);
     printf("clse k : %d \n", nk);
-    
-    // todo remove this, we already have a seed
- //   const unsigned sd = instance->seed;
-   // buf[0]=sd>>24; buf[1]=(sd>>16)&0xff; buf[2]=(sd>>8)&0xff; buf[3]=sd&0xff;
-  //  includedb__fileWrite(&instance->file, buf, 4, 20);
     
     includedb__free(instance->buffer);
     includedb__fileClose(&instance->file);
