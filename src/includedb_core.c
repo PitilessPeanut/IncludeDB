@@ -46,6 +46,7 @@ static constexpr int includedb_put(includeDB *instance, const unsigned char *key
     data[11] = (vallen    ) & 0xff;
     // Priority field is little endian and initialized to 1 for a new record.
     // If 0 then it is a tombstone marked for overwrite:
+    // todo: I know sentinel vals are bad, for now this has to do :(
     data[12] = 0;
     data[13] = 0;
     data[14] = 0;

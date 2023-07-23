@@ -100,7 +100,7 @@ static constexpr void includedb__insertNewSkipnode(includeDB *instance, unsigned
     instance->nodeVec[newNodeAddr].nodeid  = key;
     instance->nodeVec[newNodeAddr].filepos = filepos;
     
-    includedb__insertSkipnode(instance, key, newNodeAddr, 3);
+    includedb__insertSkipnode(instance, key, newNodeAddr, (INCLUDEDB_NLAYERS-1));
 }
 
 static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsigned key, const int start, const int layer)
@@ -109,7 +109,7 @@ static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsi
     int prev = current;
     for (int i=0; i<instance->nKeys; ++i)
     {
-        if (layer<3 && (prev==current || instance->nodeVec[current].nodeid>key))
+        if (layer<(INCLUDEDB_NLAYERS-1) && (prev==current || instance->nodeVec[current].nodeid>key))
         {
             return includedb__findPrevSkipnode(instance, key, instance->nodeVec[current].next, layer+1);
         }
@@ -117,11 +117,10 @@ static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsi
         {
             instance->nodeVec[current].visits += 1;
             instance->globalVisits += 1;
-            const int threshold = instance->globalVisits - ((instance->globalVisits/4)*layer);
+            const int threshold = instance->globalVisits
+                                - ((instance->globalVisits/INCLUDEDB_NLAYERS)*layer);
             if ((instance->nodeVec[current].visits > threshold) && (layer>0))
                 includedb__insertSkipnode(instance, key, current, layer-1);
-            //if (((instance->nodeVec[current].visits*100) / instance->globalVisits) > 20)
-                //icldb__insertSkipnode(instance, key, current, layer-1);
             return current;
         }
         else if (instance->nodeVec[current].nodeid >= key)
@@ -137,7 +136,8 @@ static constexpr int includedb__findPrevSkipnode(includeDB *instance, const unsi
 static constexpr includedb__skipnode *includedb__findSkipnode(includeDB *instance, const unsigned key)
 {
     //const int res = includedb__findPrevSkipnode(instance, key, instance->headA, 0);
-    const int res = includedb__findPrevSkipnode(instance, key, instance->head[3], 3);
+    const int l = INCLUDEDB_NLAYERS-1;
+    const int res = includedb__findPrevSkipnode(instance, key, instance->head[0], l);
     return instance->nodeVec[res].nodeid == key ? &instance->nodeVec[res] : nullptr;
 }
 

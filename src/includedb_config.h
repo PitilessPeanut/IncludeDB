@@ -55,6 +55,18 @@
 #endif
 
 
+#ifndef INCLUDEDB_NLAYERS
+  // Increase this if you access the same keys more often. Decrease if you
+  // like to access a larger number of different keys
+  #define INCLUDEDB_NLAYERS 4
+#endif
+
+
+#if !defined(INCLUDEDB_CHUNK_SIZE)
+  #define INCLUDEDB_CHUNK_SIZE 256
+#endif
+
+
 struct includedb__file;
 
 bool includedb__fileOpen(struct includedb__file *file, const char *filename);
@@ -64,7 +76,7 @@ int  includedb__fileWrite(struct includedb__file *file, const unsigned char *byt
 void includedb__fileRead(struct includedb__file *file, unsigned char *bytes, int len, int filepos);
 bool includedb__fileGrow(struct includedb__file *file, int len);
 
-#define INCLUDEDB_USE_STD_FILE_FALLBACK // todo: temporary. This should be removed after better file-acces is iimplemented
+#define INCLUDEDB_USE_STD_FILE_FALLBACK // todo: temporary. This should be removed after better file-acces is implemented
 #if defined(INCLUDEDB_USE_STD_FILE_FALLBACK)
   #include <stdio.h>
   typedef struct includedb__file
@@ -115,11 +127,6 @@ COMPTIME int includedb__header_keyhashLen        = 4;
 COMPTIME int includedb__header_keylenLen         = 4;
 COMPTIME int includedb__header_vallenLen         = 4;
 COMPTIME int includedb__header_recordPriorityLen = 4;
-
-
-#if !defined(INCLUDEDB_CHUNK_SIZE)
-  #define INCLUDEDB_CHUNK_SIZE 256
-#endif
 
 
 struct includeDB;
@@ -183,7 +190,7 @@ typedef struct includeDB
 
     // List:
     includedb__skipnode *nodeVec;
-    int head[4];
+    int head[INCLUDEDB_NLAYERS];
     int nKeys;
     int nAllocated;
     pincludedb__nodevecAlloc includedb__nodevecAlloc;

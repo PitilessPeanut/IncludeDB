@@ -77,7 +77,7 @@ merge_result = """/*
       BCH:          qzfy6xcw93s8605rywcwug3vpf5kmy5ywgw0lw5lj0
       LTC:          LPM7ueXta6kFwCnBKd5viJDX2CN8eLsg3b
       XMR:          47NF2hjeMXMMCHu6XNyMrWeJwkndaTNvGAKAQuy6v9wvNTHViVwi3BGTr8wy9U4aoNbDcLMEf7dVjNGvQacttGc3CjEJgP8
-      Let's cook this stonesoup together!!!
+      Let's cook this panutsoup together!!!
       
 */\n\n"""
 
